@@ -1,0 +1,40 @@
+name: lee_sale_monitor
+description: LEE Sale Monitor - daily fish selling monitor with rates, sales, balances and reports.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  firebase_core: ^3.8.0
+  firebase_auth: ^5.3.3
+  cloud_firestore: ^5.5.0
+  path_provider: ^2.1.4
+  provider: ^6.1.2
+  intl: ^0.19.0
+  csv: ^6.0.0
+  share_plus: ^10.0.2
+  fl_chart: ^0.69.0
+  shared_preferences: ^2.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon/
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/icon.png"
+  adaptive_icon_background: "#0D9488"
+  adaptive_icon_foreground: "assets/icon/icon_foreground.png"
