@@ -6,6 +6,7 @@ import '../l10n/app_strings.dart';
 import '../providers/language_provider.dart';
 import '../providers/sales_provider.dart';
 import '../services/auth_service.dart';
+import '../services/backup_service.dart';
 import '../services/sync_service.dart';
 import '../utils/date_utils.dart';
 import '../utils/formatters.dart';
@@ -27,6 +28,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _syncing = false;
+  bool _backingUp = false;
   DateTime? _lastSyncedAt;
 
   @override
@@ -76,6 +78,19 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _syncing = false);
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(tr(context, 'sync_failed_message'))));
+    }
+  }
+
+  Future<void> _backup() async {
+    setState(() => _backingUp = true);
+    try {
+      await BackupService().backupDatabase();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr(context, 'backup_failed_message'))));
+    } finally {
+      if (mounted) setState(() => _backingUp = false);
     }
   }
 
@@ -146,6 +161,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 : const Icon(Icons.cloud_upload_outlined),
             tooltip: tr(context, 'sync_tooltip'),
             onPressed: _syncing ? null : _sync,
+          ),
+          IconButton(
+            icon: _backingUp
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.backup_outlined),
+            tooltip: tr(context, 'backup_tooltip'),
+            onPressed: _backingUp ? null : _backup,
           ),
           IconButton(
             icon: const Icon(Icons.language),

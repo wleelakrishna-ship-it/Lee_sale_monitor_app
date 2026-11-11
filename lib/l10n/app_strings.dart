@@ -218,6 +218,8 @@ const Map<String, String> enStrings = {
   'synced_hours_ago': 'Synced {count}h ago',
   'synced_days_ago': 'Synced {count}d ago',
   'sync_result_message': 'Updated successfully — {up} uploaded, {down} downloaded',
+  'backup_tooltip': 'Backup to device',
+  'backup_failed_message': 'Could not create a backup. Please try again.',
 };
 
 /// Tamil translations. Keys must exactly mirror [enStrings].
@@ -433,6 +435,8 @@ const Map<String, String> taStrings = {
   'synced_hours_ago': '{count} மணி நேரத்திற்கு முன் ஒத்திசைக்கப்பட்டது',
   'synced_days_ago': '{count} நாட்களுக்கு முன் ஒத்திசைக்கப்பட்டது',
   'sync_result_message': 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது — {up} பதிவேற்றப்பட்டது, {down} பதிவிறக்கப்பட்டது',
+  'backup_tooltip': 'சாதனத்தில் காப்புப்பிரதி எடுக்கவும்',
+  'backup_failed_message': 'காப்புப்பிரதி எடுக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
 };
 
 /// Looks up [key] in the current language (falling back to English, then the
