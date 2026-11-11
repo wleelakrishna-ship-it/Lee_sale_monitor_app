@@ -6,6 +6,7 @@ import '../l10n/app_strings.dart';
 import '../providers/language_provider.dart';
 import '../providers/sales_provider.dart';
 import '../services/auth_service.dart';
+import '../services/sync_service.dart';
 import '../utils/date_utils.dart';
 import '../utils/formatters.dart';
 import '../widgets/summary_card.dart';
@@ -25,6 +26,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool _syncing = false;
+  DateTime? _lastSyncedAt;
+
   @override
   void initState() {
     super.initState();
@@ -32,6 +36,47 @@ class _HomeScreenState extends State<HomeScreen> {
       context.read<SalesProvider>().loadTodayOverview();
       context.read<LanguageProvider>().loadSavedLanguage();
     });
+    SyncService.instance.getLastSyncedAt().then((value) {
+      if (mounted) setState(() => _lastSyncedAt = value);
+    });
+  }
+
+  String _formatLastSynced(BuildContext context) {
+    final time = _lastSyncedAt;
+    if (time == null) return tr(context, 'never_synced');
+    final diff = DateTime.now().difference(time);
+    if (diff.inMinutes < 1) return tr(context, 'synced_just_now');
+    if (diff.inMinutes < 60) {
+      return tr(context, 'synced_minutes_ago', {'count': '${diff.inMinutes}'});
+    }
+    if (diff.inHours < 24) return tr(context, 'synced_hours_ago', {'count': '${diff.inHours}'});
+    return tr(context, 'synced_days_ago', {'count': '${diff.inDays}'});
+  }
+
+  Future<void> _sync() async {
+    setState(() => _syncing = true);
+    try {
+      final result = await SyncService.instance.sync();
+      final lastSyncedAt = await SyncService.instance.getLastSyncedAt();
+      if (!mounted) return;
+      setState(() {
+        _syncing = false;
+        _lastSyncedAt = lastSyncedAt;
+      });
+      await context.read<SalesProvider>().loadTodayOverview();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(context, 'sync_result_message', {
+          'up': '${result.uploaded}',
+          'down': '${result.downloaded}',
+        })),
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _syncing = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr(context, 'sync_failed_message'))));
+    }
   }
 
   Future<void> _showLanguageDialog(BuildContext context) async {
@@ -92,6 +137,17 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text(tr(context, 'app_title')),
         actions: [
           IconButton(
+            icon: _syncing
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.cloud_upload_outlined),
+            tooltip: tr(context, 'sync_tooltip'),
+            onPressed: _syncing ? null : _sync,
+          ),
+          IconButton(
             icon: const Icon(Icons.language),
             tooltip: tr(context, 'change_language'),
             onPressed: () => _showLanguageDialog(context),
@@ -108,9 +164,18 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text(
-              formatDisplayDate(todayDateOnly()),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.black54),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  formatDisplayDate(todayDateOnly()),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.black54),
+                ),
+                Text(
+                  _formatLastSynced(context),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black45),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             Row(

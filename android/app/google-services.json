@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "583733414219",
+    "firebase_url": "https://lee-sale-monitor-app-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "lee-sale-monitor-app",
+    "storage_bucket": "lee-sale-monitor-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:583733414219:android:d6057154af1b8bbfab40ce",
+        "android_client_info": {
+          "package_name": "com.fishapp.fish_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9ASg7OyOjWplSl6Vj9Mz9ZHJtsk4lZsE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

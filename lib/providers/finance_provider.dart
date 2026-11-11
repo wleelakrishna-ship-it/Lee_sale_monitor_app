@@ -14,6 +14,9 @@ class FinanceProvider extends ChangeNotifier {
   double _totalSharedAllTime = 0;
   bool _loading = false;
 
+  List<Investor> _investorRecords = [];
+  bool _investorRecordsLoading = false;
+
   ReportRangeType _rangeType = ReportRangeType.day;
   DateTime? _customStart;
   DateTime? _customEnd;
@@ -34,6 +37,9 @@ class FinanceProvider extends ChangeNotifier {
   double get netOutstandingAllTime => _totalInvestedAllTime - _totalSharedAllTime;
   bool get loading => _loading;
 
+  List<Investor> get investorRecords => _investorRecords;
+  bool get investorRecordsLoading => _investorRecordsLoading;
+
   ReportRangeType get rangeType => _rangeType;
   DateRange get range => _range;
   DateTime? get customStart => _customStart;
@@ -48,14 +54,17 @@ class FinanceProvider extends ChangeNotifier {
   Future<void> loadOverview() async {
     _loading = true;
     notifyListeners();
-    _investorTotals = await _db.getInvestorTotals();
-    _expenses = await _db.getAllExpenses();
-    _investorNames = await _db.getDistinctInvestorNames();
-    final allTime = await _db.getAllTimeInvestedAndShared();
-    _totalInvestedAllTime = allTime.totalInvestedAllTime;
-    _totalSharedAllTime = allTime.totalSharedAllTime;
-    _loading = false;
-    notifyListeners();
+    try {
+      _investorTotals = await _db.getInvestorTotals();
+      _expenses = await _db.getAllExpenses();
+      _investorNames = await _db.getDistinctInvestorNames();
+      final allTime = await _db.getAllTimeInvestedAndShared();
+      _totalInvestedAllTime = allTime.totalInvestedAllTime;
+      _totalSharedAllTime = allTime.totalSharedAllTime;
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> addInvestor({required String name, required double amount, String? note}) async {
@@ -92,6 +101,31 @@ class FinanceProvider extends ChangeNotifier {
     await loadOverview();
   }
 
+  /// All of one investor's individual investment entries (all-time), for the
+  /// investor detail/edit screen.
+  Future<void> loadInvestorRecords(String name) async {
+    _investorRecordsLoading = true;
+    notifyListeners();
+    try {
+      _investorRecords = await _db.getInvestorRecords(name);
+    } finally {
+      _investorRecordsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateInvestorRecord(Investor investor) async {
+    await _db.updateInvestor(investor);
+    await loadInvestorRecords(investor.name);
+    await loadOverview();
+  }
+
+  Future<void> deleteInvestorRecord(String id, String name) async {
+    await _db.deleteInvestor(id);
+    await loadInvestorRecords(name);
+    await loadOverview();
+  }
+
   Future<void> setRangeType(ReportRangeType type) async {
     _rangeType = type;
     await _reloadReport();
@@ -110,19 +144,21 @@ class FinanceProvider extends ChangeNotifier {
     _reportLoading = true;
     notifyListeners();
 
-    _range = buildRange(_rangeType, customStart: _customStart, customEnd: _customEnd);
-    final startDate = formatDbDate(_range.start);
-    final endDate = formatDbDate(_range.end);
+    try {
+      _range = buildRange(_rangeType, customStart: _customStart, customEnd: _customEnd);
+      final startDate = formatDbDate(_range.start);
+      final endDate = formatDbDate(_range.end);
 
-    _financeTotals = await _db.getFinanceTotals(startDate, endDate);
-    _expensesInRange = await _db.getExpenseList(startDate, endDate);
-    _investedInRange = await _db.getInvestorList(startDate, endDate);
-    _sharedInRange = await _db.getProfitShareList(startDate, endDate);
-    final allTime = await _db.getAllTimeInvestedAndShared();
-    _totalInvestedAllTime = allTime.totalInvestedAllTime;
-    _totalSharedAllTime = allTime.totalSharedAllTime;
-
-    _reportLoading = false;
-    notifyListeners();
+      _financeTotals = await _db.getFinanceTotals(startDate, endDate);
+      _expensesInRange = await _db.getExpenseList(startDate, endDate);
+      _investedInRange = await _db.getInvestorList(startDate, endDate);
+      _sharedInRange = await _db.getProfitShareList(startDate, endDate);
+      final allTime = await _db.getAllTimeInvestedAndShared();
+      _totalInvestedAllTime = allTime.totalInvestedAllTime;
+      _totalSharedAllTime = allTime.totalSharedAllTime;
+    } finally {
+      _reportLoading = false;
+      notifyListeners();
+    }
   }
 }

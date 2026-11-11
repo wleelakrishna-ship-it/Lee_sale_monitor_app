@@ -28,63 +28,102 @@ class _RatesSetupScreenState extends State<RatesSetupScreen> {
       text: existing != null ? existing.ratePerKg.toString() : '',
     );
     final formKey = GlobalKey<FormState>();
+    final provider = context.read<RatesProvider>();
+    bool submitting = false;
+    String? errorText;
 
-    final result = await showDialog<bool>(
+    await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(existing == null
-            ? tr(context, 'add_category_title')
-            : tr(context, 'edit_category_title')),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: nameController,
-                decoration: InputDecoration(labelText: tr(context, 'fish_category_label')),
-                validator: (value) =>
-                    (value == null || value.trim().isEmpty) ? tr(context, 'enter_category_name') : null,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          Future<void> submit() async {
+            if (!(formKey.currentState?.validate() ?? false)) return;
+            setDialogState(() {
+              submitting = true;
+              errorText = null;
+            });
+            final category = nameController.text.trim();
+            final rate = double.parse(rateController.text);
+            try {
+              if (existing == null) {
+                await provider.addCategory(category, rate);
+              } else {
+                await provider.updateCategory(existing.copyWith(category: category, ratePerKg: rate));
+              }
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+            } catch (_) {
+              setDialogState(() {
+                submitting = false;
+                errorText = tr(context, 'local_save_failed_message');
+              });
+            }
+          }
+
+          return AlertDialog(
+            title: Text(existing == null
+                ? tr(context, 'add_category_title')
+                : tr(context, 'edit_category_title')),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameController,
+                    enabled: !submitting,
+                    decoration: InputDecoration(labelText: tr(context, 'fish_category_label')),
+                    validator: (value) => (value == null || value.trim().isEmpty)
+                        ? tr(context, 'enter_category_name')
+                        : null,
+                  ),
+                  TextFormField(
+                    controller: rateController,
+                    enabled: !submitting,
+                    decoration: InputDecoration(labelText: tr(context, 'rate_per_kg_label')),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    validator: (value) {
+                      final parsed = double.tryParse(value ?? '');
+                      if (parsed == null || parsed <= 0) return tr(context, 'enter_valid_rate');
+                      return null;
+                    },
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 8),
+                    Text(errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  ],
+                ],
               ),
-              TextFormField(
-                controller: rateController,
-                decoration: InputDecoration(labelText: tr(context, 'rate_per_kg_label')),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (value) {
-                  final parsed = double.tryParse(value ?? '');
-                  if (parsed == null || parsed <= 0) return tr(context, 'enter_valid_rate');
-                  return null;
-                },
+            ),
+            actions: [
+              TextButton(
+                onPressed: submitting ? null : () => Navigator.pop(dialogContext),
+                child: Text(tr(context, 'cancel')),
+              ),
+              FilledButton(
+                onPressed: submitting ? null : submit,
+                child: submitting
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(tr(context, 'save')),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(tr(context, 'cancel')),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                Navigator.pop(dialogContext, true);
-              }
-            },
-            child: Text(tr(context, 'save')),
-          ),
-        ],
+          );
+        },
       ),
     );
+  }
 
-    if (result == true && mounted) {
-      final provider = context.read<RatesProvider>();
-      final category = nameController.text.trim();
-      final rate = double.parse(rateController.text);
-      if (existing == null) {
-        await provider.addCategory(category, rate);
-      } else {
-        await provider.updateCategory(existing.copyWith(category: category, ratePerKg: rate));
-      }
+  Future<void> _deleteCategory(String id) async {
+    try {
+      await context.read<RatesProvider>().deleteCategory(id);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr(context, 'local_save_failed_message'))));
     }
   }
 
@@ -145,7 +184,7 @@ class _RatesSetupScreenState extends State<RatesSetupScreen> {
                             ),
                             IconButton(
                               icon: const Icon(Icons.delete_outline),
-                              onPressed: () => context.read<RatesProvider>().deleteCategory(rate.id!),
+                              onPressed: () => _deleteCategory(rate.id!),
                             ),
                           ],
                         ),

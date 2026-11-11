@@ -27,49 +27,83 @@ class _TodayOverviewScreenState extends State<TodayOverviewScreen> {
   Future<void> _recordPayment(BuyerSummary summary) async {
     final controller = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    final result = await showDialog<bool>(
+    final salesProvider = context.read<SalesProvider>();
+    bool submitting = false;
+    String? errorText;
+
+    await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(tr(context, 'add_payment_dialog_title', {'buyer': summary.buyerName})),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: controller,
-            autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: tr(context, 'amount_given_field'),
-              helperText:
-                  tr(context, 'current_balance_helper', {'balance': formatCurrency(summary.balance)}),
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          Future<void> submit() async {
+            if (!(formKey.currentState?.validate() ?? false)) return;
+            setDialogState(() {
+              submitting = true;
+              errorText = null;
+            });
+            final amount = double.parse(controller.text);
+            try {
+              await salesProvider.addPaymentForBuyer(summary.buyerName, amount);
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+            } catch (_) {
+              setDialogState(() {
+                submitting = false;
+                errorText = tr(context, 'local_save_failed_message');
+              });
+            }
+          }
+
+          return AlertDialog(
+            title: Text(tr(context, 'add_payment_dialog_title', {'buyer': summary.buyerName})),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: controller,
+                    autofocus: true,
+                    enabled: !submitting,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: tr(context, 'amount_given_field'),
+                      helperText: tr(
+                          context, 'current_balance_helper', {'balance': formatCurrency(summary.balance)}),
+                    ),
+                    validator: (value) {
+                      final parsed = double.tryParse(value ?? '');
+                      if (parsed == null || parsed <= 0) return tr(context, 'enter_valid_amount');
+                      return null;
+                    },
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 8),
+                    Text(errorText!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  ],
+                ],
+              ),
             ),
-            validator: (value) {
-              final parsed = double.tryParse(value ?? '');
-              if (parsed == null || parsed <= 0) return tr(context, 'enter_valid_amount');
-              return null;
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(tr(context, 'cancel')),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                Navigator.pop(dialogContext, true);
-              }
-            },
-            child: Text(tr(context, 'save')),
-          ),
-        ],
+            actions: [
+              TextButton(
+                onPressed: submitting ? null : () => Navigator.pop(dialogContext),
+                child: Text(tr(context, 'cancel')),
+              ),
+              FilledButton(
+                onPressed: submitting ? null : submit,
+                child: submitting
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(tr(context, 'save')),
+              ),
+            ],
+          );
+        },
       ),
     );
-
-    if (result == true && mounted) {
-      final amount = double.parse(controller.text);
-      await context.read<SalesProvider>().addPaymentForBuyer(summary.buyerName, amount);
-    }
   }
 
   @override

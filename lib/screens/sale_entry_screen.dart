@@ -7,6 +7,7 @@ import '../providers/rates_provider.dart';
 import '../providers/sales_provider.dart';
 import '../utils/formatters.dart';
 import '../widgets/category_chip.dart';
+import '../widgets/saving_button.dart';
 
 class SaleEntryScreen extends StatefulWidget {
   const SaleEntryScreen({super.key});
@@ -80,7 +81,14 @@ class _SaleEntryScreenState extends State<SaleEntryScreen> {
           .showSnackBar(SnackBar(content: Text(tr(context, 'add_one_fish_item'))));
       return;
     }
-    await salesProvider.saveSale(buyerName: buyerName, amountGiven: _amountGiven);
+    try {
+      await salesProvider.saveSale(buyerName: buyerName, amountGiven: _amountGiven);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr(context, 'local_save_failed_message'))));
+      return;
+    }
     if (!mounted) return;
     _buyerFieldController?.clear();
     _givenController.clear();
@@ -233,10 +241,9 @@ class _SaleEntryScreenState extends State<SaleEntryScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          FilledButton(
+          SavingButton(
+            label: tr(context, 'save_sale_button'),
             onPressed: () => _save(salesProvider),
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-            child: Text(tr(context, 'save_sale_button')),
           ),
         ],
       ),

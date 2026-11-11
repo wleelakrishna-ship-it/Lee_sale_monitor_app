@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../l10n/app_strings.dart';
 import '../providers/finance_provider.dart';
 import '../utils/formatters.dart';
+import '../widgets/saving_button.dart';
 import '../widgets/summary_card.dart';
+import 'investor_detail_screen.dart';
 
 class InvestorsExpensesScreen extends StatefulWidget {
   const InvestorsExpensesScreen({super.key});
@@ -53,7 +55,14 @@ class _InvestorsExpensesScreenState extends State<InvestorsExpensesScreen> {
       return;
     }
     final note = _investorNoteController.text.trim();
-    await provider.addInvestor(name: name, amount: amount, note: note.isEmpty ? null : note);
+    try {
+      await provider.addInvestor(name: name, amount: amount, note: note.isEmpty ? null : note);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr(context, 'local_save_failed_message'))));
+      return;
+    }
     if (!mounted) return;
     _investorNameController.clear();
     _investorAmountController.clear();
@@ -74,7 +83,14 @@ class _InvestorsExpensesScreenState extends State<InvestorsExpensesScreen> {
           .showSnackBar(SnackBar(content: Text(tr(context, 'enter_amount_greater_zero'))));
       return;
     }
-    await provider.addExpense(description: description, amount: amount);
+    try {
+      await provider.addExpense(description: description, amount: amount);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr(context, 'local_save_failed_message'))));
+      return;
+    }
     if (!mounted) return;
     _expenseDescriptionController.clear();
     _expenseAmountController.clear();
@@ -126,7 +142,7 @@ class _InvestorsTab extends StatelessWidget {
   final TextEditingController nameController;
   final TextEditingController amountController;
   final TextEditingController noteController;
-  final VoidCallback onAdd;
+  final Future<void> Function() onAdd;
 
   const _InvestorsTab({
     required this.provider,
@@ -179,10 +195,10 @@ class _InvestorsTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          FilledButton.icon(
+          SavingButton(
+            label: tr(context, 'add_investment_button'),
+            icon: Icons.add,
             onPressed: onAdd,
-            icon: const Icon(Icons.add),
-            label: Text(tr(context, 'add_investment_button')),
           ),
           const Divider(height: 32),
           Text(tr(context, 'investors_label'), style: Theme.of(context).textTheme.titleSmall),
@@ -195,9 +211,20 @@ class _InvestorsTab extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 child: ListTile(
                   title: Text(investor.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  trailing: Text(
-                    formatCurrency(investor.invested),
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        formatCurrency(investor.invested),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const Icon(Icons.chevron_right),
+                    ],
+                  ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => InvestorDetailScreen(investorName: investor.name),
+                    ),
                   ),
                 ),
               ),
@@ -212,7 +239,7 @@ class _ExpensesTab extends StatelessWidget {
   final FinanceProvider provider;
   final TextEditingController descriptionController;
   final TextEditingController amountController;
-  final VoidCallback onAdd;
+  final Future<void> Function() onAdd;
 
   const _ExpensesTab({
     required this.provider,
@@ -256,10 +283,10 @@ class _ExpensesTab extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          FilledButton.icon(
+          SavingButton(
+            label: tr(context, 'add_expense_button'),
+            icon: Icons.add,
             onPressed: onAdd,
-            icon: const Icon(Icons.add),
-            label: Text(tr(context, 'add_expense_button')),
           ),
           const Divider(height: 32),
           Text(tr(context, 'expenses_label'), style: Theme.of(context).textTheme.titleSmall),

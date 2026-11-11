@@ -16,9 +16,12 @@ class RatesProvider extends ChangeNotifier {
   Future<void> loadTodayRates() async {
     _loading = true;
     notifyListeners();
-    _todayRates = await _db.getRatesForDate(todayDbDate());
-    _loading = false;
-    notifyListeners();
+    try {
+      _todayRates = await _db.getRatesForDate(todayDbDate());
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> addCategory(String category, double ratePerKg) async {

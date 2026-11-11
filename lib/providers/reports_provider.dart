@@ -44,18 +44,20 @@ class ReportsProvider extends ChangeNotifier {
     loading = true;
     notifyListeners();
 
-    _range = buildRange(_rangeType, customStart: _customStart, customEnd: _customEnd);
-    final startDate = formatDbDate(_range.start);
-    final endDate = formatDbDate(_range.end);
+    try {
+      _range = buildRange(_rangeType, customStart: _customStart, customEnd: _customEnd);
+      final startDate = formatDbDate(_range.start);
+      final endDate = formatDbDate(_range.end);
 
-    sales = await _db.getSalesForDateRange(startDate, endDate);
-    categoryTotals = await _db.getCategoryTotals(startDate, endDate);
-    buyerTotals = await _db.getBuyerTotals(startDate, endDate);
-    dailyTotals = await _db.getDailyTotals(_range.start, _range.end);
-    totalAmount = categoryTotals.fold(0.0, (sum, c) => sum + c.amount);
-    totalKg = categoryTotals.fold(0.0, (sum, c) => sum + c.kilograms);
-
-    loading = false;
-    notifyListeners();
+      sales = await _db.getSalesForDateRange(startDate, endDate);
+      categoryTotals = await _db.getCategoryTotals(startDate, endDate);
+      buyerTotals = await _db.getBuyerTotals(startDate, endDate);
+      dailyTotals = await _db.getDailyTotals(_range.start, _range.end);
+      totalAmount = categoryTotals.fold(0.0, (sum, c) => sum + c.amount);
+      totalKg = categoryTotals.fold(0.0, (sum, c) => sum + c.kilograms);
+    } finally {
+      loading = false;
+      notifyListeners();
+    }
   }
 }

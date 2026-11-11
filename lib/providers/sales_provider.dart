@@ -104,21 +104,27 @@ class SalesProvider extends ChangeNotifier {
   Future<void> loadTodayOverview() async {
     _loading = true;
     notifyListeners();
-    final date = todayDbDate();
-    _todaySummaries = await _db.getBuyerSummariesForDate(date);
-    _dayTotals = await _db.getDayTotals(date);
-    _loading = false;
-    notifyListeners();
+    try {
+      final date = todayDbDate();
+      _todaySummaries = await _db.getBuyerSummariesForDate(date);
+      _dayTotals = await _db.getDayTotals(date);
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> loadBuyerDayDetail(String buyerName) async {
     _buyerDetailLoading = true;
     notifyListeners();
-    final date = todayDbDate();
-    _buyerSales = await _db.getSalesForBuyerOnDate(date, buyerName);
-    _buyerPayments = await _db.getPaymentsForBuyerOnDate(date, buyerName);
-    _buyerDetailLoading = false;
-    notifyListeners();
+    try {
+      final date = todayDbDate();
+      _buyerSales = await _db.getSalesForBuyerOnDate(date, buyerName);
+      _buyerPayments = await _db.getPaymentsForBuyerOnDate(date, buyerName);
+    } finally {
+      _buyerDetailLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> updateSaleItem(Sale sale) async {

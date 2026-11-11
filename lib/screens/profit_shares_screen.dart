@@ -5,6 +5,7 @@ import '../l10n/app_strings.dart';
 import '../models/finance.dart';
 import '../providers/finance_provider.dart';
 import '../utils/formatters.dart';
+import '../widgets/saving_button.dart';
 import '../widgets/summary_card.dart';
 
 class ProfitSharesScreen extends StatefulWidget {
@@ -48,11 +49,18 @@ class _ProfitSharesScreenState extends State<ProfitSharesScreen> {
       return;
     }
     final note = _noteController.text.trim();
-    await provider.addProfitShare(
-      investorName: investorName,
-      amount: amount,
-      note: note.isEmpty ? null : note,
-    );
+    try {
+      await provider.addProfitShare(
+        investorName: investorName,
+        amount: amount,
+        note: note.isEmpty ? null : note,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr(context, 'local_save_failed_message'))));
+      return;
+    }
     if (!mounted) return;
     _investorFieldController?.clear();
     _amountController.clear();
@@ -145,10 +153,10 @@ class _ProfitSharesScreenState extends State<ProfitSharesScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  FilledButton.icon(
+                  SavingButton(
+                    label: tr(context, 'add_profit_share_button'),
+                    icon: Icons.add,
                     onPressed: () => _addProfitShare(provider),
-                    icon: const Icon(Icons.add),
-                    label: Text(tr(context, 'add_profit_share_button')),
                   ),
                   const Divider(height: 32),
                   Text(tr(context, 'per_investor_label'), style: Theme.of(context).textTheme.titleSmall),

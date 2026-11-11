@@ -198,6 +198,26 @@ const Map<String, String> enStrings = {
   'sign_out_tooltip': 'Sign out',
   'sign_out_confirm_title': 'Sign out?',
   'sign_out_confirm_body': 'You will need to sign in again to use the app.',
+  'local_save_failed_message': 'Could not save. Please try again.',
+  'sync_failed_message': 'Sync failed. Check your internet connection and try again.',
+
+  // Investor detail
+  'investment_records_label': 'Investment records',
+  'no_investment_records': 'No investment records yet.',
+  'edit_investment_title': 'Edit investment',
+  'delete_investment_title': 'Delete this investment?',
+  'delete_investment_body': 'Delete the {amount} investment dated {date}?',
+  'investment_updated': 'Investment updated',
+  'investment_deleted': 'Investment deleted',
+
+  // Sync
+  'sync_tooltip': 'Sync with Firebase',
+  'never_synced': 'Not synced yet',
+  'synced_just_now': 'Synced just now',
+  'synced_minutes_ago': 'Synced {count}m ago',
+  'synced_hours_ago': 'Synced {count}h ago',
+  'synced_days_ago': 'Synced {count}d ago',
+  'sync_result_message': 'Updated successfully — {up} uploaded, {down} downloaded',
 };
 
 /// Tamil translations. Keys must exactly mirror [enStrings].
@@ -393,6 +413,26 @@ const Map<String, String> taStrings = {
   'sign_out_tooltip': 'வெளியேறு',
   'sign_out_confirm_title': 'வெளியேறவா?',
   'sign_out_confirm_body': 'மீண்டும் பயன்படுத்த உள்நுழைய வேண்டும்.',
+  'local_save_failed_message': 'சேமிக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+  'sync_failed_message': 'ஒத்திசைவு தோல்வியடைந்தது. இணைய இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.',
+
+  // Investor detail
+  'investment_records_label': 'முதலீட்டு பதிவுகள்',
+  'no_investment_records': 'இன்னும் முதலீட்டு பதிவுகள் இல்லை.',
+  'edit_investment_title': 'முதலீட்டைத் திருத்து',
+  'delete_investment_title': 'இந்த முதலீட்டை நீக்கவா?',
+  'delete_investment_body': '{date} தேதியிட்ட {amount} முதலீட்டை நீக்கவா?',
+  'investment_updated': 'முதலீடு புதுப்பிக்கப்பட்டது',
+  'investment_deleted': 'முதலீடு நீக்கப்பட்டது',
+
+  // Sync
+  'sync_tooltip': 'Firebase உடன் ஒத்திசை',
+  'never_synced': 'இன்னும் ஒத்திசைக்கப்படவில்லை',
+  'synced_just_now': 'இப்போது ஒத்திசைக்கப்பட்டது',
+  'synced_minutes_ago': '{count} நிமிடங்களுக்கு முன் ஒத்திசைக்கப்பட்டது',
+  'synced_hours_ago': '{count} மணி நேரத்திற்கு முன் ஒத்திசைக்கப்பட்டது',
+  'synced_days_ago': '{count} நாட்களுக்கு முன் ஒத்திசைக்கப்பட்டது',
+  'sync_result_message': 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது — {up} பதிவேற்றப்பட்டது, {down} பதிவிறக்கப்பட்டது',
 };
 
 /// Looks up [key] in the current language (falling back to English, then the

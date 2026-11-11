@@ -1,4 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:path/path.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/buyer_overview.dart';
 import '../models/buyer_summary.dart';
@@ -9,218 +11,396 @@ import '../models/report_data.dart';
 import '../models/sale.dart';
 import '../utils/date_utils.dart';
 
-/// Shared cloud data store (Cloud Firestore). Every signed-in user reads/writes the
-/// same collections, so the data is shared across devices rather than per-device.
-///
-/// Firestore can't do SQL-style SUM/GROUP BY, so aggregations here fetch the relevant
-/// documents (filtered by a single field to stay within Firestore's automatic indexes)
-/// and reduce them in Dart. That's fine at this app's data volume.
+/// Local-first data store (SQLite via sqflite) — every read/write is instant and
+/// works fully offline. Every table carries three sync-bookkeeping columns used by
+/// [SyncService] to push/pull changes to Firestore on demand (see sync_service.dart):
+/// `updated_at` (drives conflict resolution and "what changed since last sync"),
+/// `deleted` (soft-delete, so a deletion can still be synced later), and `synced`
+/// (0 = has local changes not yet pushed).
 class DatabaseHelper {
   DatabaseHelper._internal();
   static final DatabaseHelper instance = DatabaseHelper._internal();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static const _uuid = Uuid();
+  static String newId() => _uuid.v4();
+  static String _now() => DateTime.now().toIso8601String();
 
-  CollectionReference<Map<String, dynamic>> get _categoryRates =>
-      _firestore.collection('category_rates');
-  CollectionReference<Map<String, dynamic>> get _sales => _firestore.collection('sales');
-  CollectionReference<Map<String, dynamic>> get _payments => _firestore.collection('payments');
-  CollectionReference<Map<String, dynamic>> get _investors => _firestore.collection('investors');
-  CollectionReference<Map<String, dynamic>> get _expenses => _firestore.collection('expenses');
-  CollectionReference<Map<String, dynamic>> get _profitShares =>
-      _firestore.collection('profit_shares');
+  Database? _database;
+
+  Future<Database> get database async {
+    final existing = _database;
+    if (existing != null) return existing;
+    final db = await _initDatabase();
+    _database = db;
+    return db;
+  }
+
+  // Bumped well past every schema version this app has ever shipped (the original
+  // pre-sync version of this app used version 2, with an incompatible integer-id
+  // schema). Opening an old database with a lower version number than it already has
+  // makes sqflite refuse to open it at all — every local read/write would fail with
+  // "check your internet connection" (the generic error message), which is exactly
+  // what happened. `onUpgrade`/`onDowngrade` both rebuild the schema fresh below, so
+  // this version only ever needs to go up from here.
+  static const _schemaVersion = 3;
+
+  Future<Database> _initDatabase() async {
+    final databasesPath = await getDatabasesPath();
+    final path = join(databasesPath, 'fish_app.db');
+    return openDatabase(
+      path,
+      version: _schemaVersion,
+      onCreate: (db, version) => _createSchema(db),
+      onUpgrade: (db, oldVersion, newVersion) => _rebuildSchema(db),
+      onDowngrade: (db, oldVersion, newVersion) => _rebuildSchema(db),
+    );
+  }
+
+  static const _tableNames = [
+    'category_rates',
+    'sales',
+    'payments',
+    'investors',
+    'expenses',
+    'profit_shares',
+  ];
+
+  /// Drops any tables left over from an older, incompatible schema (e.g. this app's
+  /// original integer-id version) and recreates them fresh. Any data that was already
+  /// pushed to Firestore before the schema changed can still be pulled back in with
+  /// the sync button; a clean rebuild is far simpler and safer than trying to migrate
+  /// integer ids into the new text-id, sync-tracked schema row by row.
+  Future<void> _rebuildSchema(Database db) async {
+    for (final table in _tableNames) {
+      await db.execute('DROP TABLE IF EXISTS $table');
+    }
+    await _createSchema(db);
+  }
+
+  Future<void> _createSchema(Database db) async {
+    const syncColumns = '''
+      updated_at TEXT NOT NULL,
+      deleted INTEGER NOT NULL DEFAULT 0,
+      synced INTEGER NOT NULL DEFAULT 0
+    ''';
+    await db.execute('''
+      CREATE TABLE category_rates (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        category TEXT NOT NULL,
+        rate_per_kg REAL NOT NULL,
+        $syncColumns
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE sales (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        buyer_name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        rate_per_kg REAL NOT NULL,
+        kilograms REAL NOT NULL,
+        amount REAL NOT NULL,
+        created_at TEXT NOT NULL,
+        $syncColumns
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE payments (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL,
+        buyer_name TEXT NOT NULL,
+        amount_given REAL NOT NULL,
+        created_at TEXT NOT NULL,
+        $syncColumns
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE investors (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        amount REAL NOT NULL,
+        date TEXT NOT NULL,
+        note TEXT,
+        created_at TEXT NOT NULL,
+        $syncColumns
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE expenses (
+        id TEXT PRIMARY KEY,
+        description TEXT NOT NULL,
+        amount REAL NOT NULL,
+        date TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        $syncColumns
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE profit_shares (
+        id TEXT PRIMARY KEY,
+        investor_name TEXT NOT NULL,
+        amount REAL NOT NULL,
+        date TEXT NOT NULL,
+        note TEXT,
+        created_at TEXT NOT NULL,
+        $syncColumns
+      )
+    ''');
+    await db.execute('CREATE INDEX idx_sales_date ON sales(date)');
+    await db.execute('CREATE INDEX idx_payments_date ON payments(date)');
+    await db.execute('CREATE INDEX idx_category_rates_date ON category_rates(date)');
+    await db.execute('CREATE INDEX idx_sales_updated ON sales(updated_at)');
+    await db.execute('CREATE INDEX idx_payments_updated ON payments(updated_at)');
+    await db.execute('CREATE INDEX idx_category_rates_updated ON category_rates(updated_at)');
+    await db.execute('CREATE INDEX idx_investors_updated ON investors(updated_at)');
+    await db.execute('CREATE INDEX idx_expenses_updated ON expenses(updated_at)');
+    await db.execute('CREATE INDEX idx_profit_shares_updated ON profit_shares(updated_at)');
+  }
 
   // ---------------- Category rates ----------------
 
   Future<void> insertCategoryRate(CategoryRate rate) async {
-    await _categoryRates.add(rate.toMap());
+    final db = await database;
+    final map = rate.toMap()
+      ..['id'] = newId()
+      ..['updated_at'] = _now()
+      ..['deleted'] = 0
+      ..['synced'] = 0;
+    await db.insert('category_rates', map);
   }
 
   Future<void> updateCategoryRate(CategoryRate rate) async {
-    await _categoryRates.doc(rate.id).update(rate.toMap());
+    final db = await database;
+    final map = rate.toMap()
+      ..['updated_at'] = _now()
+      ..['synced'] = 0;
+    await db.update('category_rates', map, where: 'id = ?', whereArgs: [rate.id]);
   }
 
   Future<void> deleteCategoryRate(String id) async {
-    await _categoryRates.doc(id).delete();
+    final db = await database;
+    await db.update(
+      'category_rates',
+      {'deleted': 1, 'updated_at': _now(), 'synced': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<List<CategoryRate>> getRatesForDate(String date) async {
-    final snapshot = await _categoryRates.where('date', isEqualTo: date).get();
-    final rates = snapshot.docs.map((doc) => CategoryRate.fromMap(doc.id, doc.data())).toList();
-    rates.sort((a, b) => a.category.compareTo(b.category));
-    return rates;
+    final db = await database;
+    final rows = await db.query(
+      'category_rates',
+      where: 'date = ? AND deleted = 0',
+      whereArgs: [date],
+      orderBy: 'category ASC',
+    );
+    return rows.map((row) => CategoryRate.fromMap(row['id'] as String, row)).toList();
   }
 
   /// Rates from the most recent date strictly before [date], for "copy yesterday's rates".
   Future<List<CategoryRate>> getMostRecentRatesBefore(String date) async {
-    final snapshot = await _categoryRates
-        .where('date', isLessThan: date)
-        .orderBy('date', descending: true)
-        .limit(1)
-        .get();
-    if (snapshot.docs.isEmpty) return [];
-    final maxDate = snapshot.docs.first.data()['date'] as String;
+    final db = await database;
+    final latest = await db.rawQuery(
+      'SELECT MAX(date) as max_date FROM category_rates WHERE date < ? AND deleted = 0',
+      [date],
+    );
+    final maxDate = latest.first['max_date'] as String?;
+    if (maxDate == null) return [];
     return getRatesForDate(maxDate);
   }
 
   // ---------------- Sales ----------------
 
   Future<void> insertSales(List<Sale> sales) async {
-    final batch = _firestore.batch();
+    final db = await database;
+    final batch = db.batch();
+    final now = _now();
     for (final sale in sales) {
-      batch.set(_sales.doc(), sale.toMap());
+      final map = sale.toMap()
+        ..['id'] = newId()
+        ..['updated_at'] = now
+        ..['deleted'] = 0
+        ..['synced'] = 0;
+      batch.insert('sales', map);
     }
-    await batch.commit();
+    await batch.commit(noResult: true);
   }
 
   Future<List<Sale>> getSalesForDateRange(String startDate, String endDate) async {
-    final snapshot = await _sales
-        .where('date', isGreaterThanOrEqualTo: startDate)
-        .where('date', isLessThanOrEqualTo: endDate)
-        .get();
-    final sales = snapshot.docs.map((doc) => Sale.fromMap(doc.id, doc.data())).toList();
-    sales.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    return sales;
+    final db = await database;
+    final rows = await db.query(
+      'sales',
+      where: 'date BETWEEN ? AND ? AND deleted = 0',
+      whereArgs: [startDate, endDate],
+      orderBy: 'created_at ASC',
+    );
+    return rows.map((row) => Sale.fromMap(row['id'] as String, row)).toList();
   }
 
   Future<void> updateSale(Sale sale) async {
-    await _sales.doc(sale.id).update(sale.toMap());
+    final db = await database;
+    final map = sale.toMap()
+      ..['updated_at'] = _now()
+      ..['synced'] = 0;
+    await db.update('sales', map, where: 'id = ?', whereArgs: [sale.id]);
   }
 
   Future<void> deleteSale(String id) async {
-    await _sales.doc(id).delete();
+    final db = await database;
+    await db.update(
+      'sales',
+      {'deleted': 1, 'updated_at': _now(), 'synced': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<List<Sale>> getSalesForBuyerOnDate(String date, String buyerName) async {
-    final snapshot = await _sales.where('date', isEqualTo: date).get();
-    final sales = snapshot.docs
-        .map((doc) => Sale.fromMap(doc.id, doc.data()))
-        .where((sale) => sale.buyerName == buyerName)
-        .toList();
-    sales.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    return sales;
+    final db = await database;
+    final rows = await db.query(
+      'sales',
+      where: 'date = ? AND buyer_name = ? AND deleted = 0',
+      whereArgs: [date, buyerName],
+      orderBy: 'created_at ASC',
+    );
+    return rows.map((row) => Sale.fromMap(row['id'] as String, row)).toList();
   }
 
   // ---------------- Payments ----------------
 
   Future<void> insertPayment(Payment payment) async {
-    await _payments.add(payment.toMap());
+    final db = await database;
+    final map = payment.toMap()
+      ..['id'] = newId()
+      ..['updated_at'] = _now()
+      ..['deleted'] = 0
+      ..['synced'] = 0;
+    await db.insert('payments', map);
   }
 
   Future<List<Payment>> getPaymentsForDateRange(String startDate, String endDate) async {
-    final snapshot = await _payments
-        .where('date', isGreaterThanOrEqualTo: startDate)
-        .where('date', isLessThanOrEqualTo: endDate)
-        .get();
-    final payments = snapshot.docs.map((doc) => Payment.fromMap(doc.id, doc.data())).toList();
-    payments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    return payments;
+    final db = await database;
+    final rows = await db.query(
+      'payments',
+      where: 'date BETWEEN ? AND ? AND deleted = 0',
+      whereArgs: [startDate, endDate],
+      orderBy: 'created_at ASC',
+    );
+    return rows.map((row) => Payment.fromMap(row['id'] as String, row)).toList();
   }
 
   Future<void> updatePayment(Payment payment) async {
-    await _payments.doc(payment.id).update(payment.toMap());
+    final db = await database;
+    final map = payment.toMap()
+      ..['updated_at'] = _now()
+      ..['synced'] = 0;
+    await db.update('payments', map, where: 'id = ?', whereArgs: [payment.id]);
   }
 
   Future<void> deletePayment(String id) async {
-    await _payments.doc(id).delete();
+    final db = await database;
+    await db.update(
+      'payments',
+      {'deleted': 1, 'updated_at': _now(), 'synced': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<List<Payment>> getPaymentsForBuyerOnDate(String date, String buyerName) async {
-    final snapshot = await _payments.where('date', isEqualTo: date).get();
-    final payments = snapshot.docs
-        .map((doc) => Payment.fromMap(doc.id, doc.data()))
-        .where((payment) => payment.buyerName == buyerName)
-        .toList();
-    payments.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    return payments;
+    final db = await database;
+    final rows = await db.query(
+      'payments',
+      where: 'date = ? AND buyer_name = ? AND deleted = 0',
+      whereArgs: [date, buyerName],
+      orderBy: 'created_at ASC',
+    );
+    return rows.map((row) => Payment.fromMap(row['id'] as String, row)).toList();
   }
 
   // ---------------- Buyers ----------------
 
   Future<List<String>> getDistinctBuyerNames() async {
-    final snapshot = await _sales.get();
-    final names = <String>{for (final doc in snapshot.docs) doc.data()['buyer_name'] as String};
-    final sorted = names.toList()..sort();
-    return sorted;
+    final db = await database;
+    final rows = await db.rawQuery(
+      'SELECT DISTINCT buyer_name FROM sales WHERE deleted = 0 ORDER BY buyer_name ASC',
+    );
+    return rows.map((row) => row['buyer_name'] as String).toList();
   }
 
   Future<List<BuyerSummary>> getBuyerSummariesForDate(String date) async {
-    final salesSnapshot = await _sales.where('date', isEqualTo: date).get();
-    final paymentsSnapshot = await _payments.where('date', isEqualTo: date).get();
+    final db = await database;
+    final salesRows = await db.rawQuery(
+      '''
+      SELECT buyer_name, SUM(amount) as total, SUM(kilograms) as total_kg
+      FROM sales WHERE date = ? AND deleted = 0 GROUP BY buyer_name
+      ''',
+      [date],
+    );
+    final paymentRows = await db.rawQuery(
+      'SELECT buyer_name, SUM(amount_given) as given FROM payments WHERE date = ? AND deleted = 0 GROUP BY buyer_name',
+      [date],
+    );
+    final givenByBuyer = <String, double>{
+      for (final row in paymentRows)
+        row['buyer_name'] as String: (row['given'] as num?)?.toDouble() ?? 0.0,
+    };
 
-    final totalsByBuyer = <String, double>{};
-    final kgByBuyer = <String, double>{};
-    for (final doc in salesSnapshot.docs) {
-      final data = doc.data();
-      final buyerName = data['buyer_name'] as String;
-      totalsByBuyer[buyerName] =
-          (totalsByBuyer[buyerName] ?? 0) + (data['amount'] as num).toDouble();
-      kgByBuyer[buyerName] = (kgByBuyer[buyerName] ?? 0) + (data['kilograms'] as num).toDouble();
-    }
-    final givenByBuyer = <String, double>{};
-    for (final doc in paymentsSnapshot.docs) {
-      final data = doc.data();
-      final buyerName = data['buyer_name'] as String;
-      givenByBuyer[buyerName] =
-          (givenByBuyer[buyerName] ?? 0) + (data['amount_given'] as num).toDouble();
-    }
-
-    final summaries = totalsByBuyer.entries
-        .map((entry) => BuyerSummary(
-              buyerName: entry.key,
-              total: entry.value,
-              totalKilograms: kgByBuyer[entry.key] ?? 0.0,
-              given: givenByBuyer[entry.key] ?? 0.0,
-            ))
-        .toList();
-    summaries.sort((a, b) => a.buyerName.compareTo(b.buyerName));
-    return summaries;
+    return salesRows.map((row) {
+      final buyerName = row['buyer_name'] as String;
+      return BuyerSummary(
+        buyerName: buyerName,
+        total: (row['total'] as num?)?.toDouble() ?? 0.0,
+        totalKilograms: (row['total_kg'] as num?)?.toDouble() ?? 0.0,
+        given: givenByBuyer[buyerName] ?? 0.0,
+      );
+    }).toList()
+      ..sort((a, b) => a.buyerName.compareTo(b.buyerName));
   }
 
   Future<({double totalAmount, double totalKg, int buyerCount})> getDayTotals(String date) async {
-    final snapshot = await _sales.where('date', isEqualTo: date).get();
-    double totalAmount = 0;
-    double totalKg = 0;
-    final buyers = <String>{};
-    for (final doc in snapshot.docs) {
-      final data = doc.data();
-      totalAmount += (data['amount'] as num).toDouble();
-      totalKg += (data['kilograms'] as num).toDouble();
-      buyers.add(data['buyer_name'] as String);
-    }
-    return (totalAmount: totalAmount, totalKg: totalKg, buyerCount: buyers.length);
+    final db = await database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT SUM(amount) as total_amount, SUM(kilograms) as total_kg,
+             COUNT(DISTINCT buyer_name) as buyer_count
+      FROM sales WHERE date = ? AND deleted = 0
+      ''',
+      [date],
+    );
+    final row = rows.first;
+    return (
+      totalAmount: (row['total_amount'] as num?)?.toDouble() ?? 0.0,
+      totalKg: (row['total_kg'] as num?)?.toDouble() ?? 0.0,
+      buyerCount: (row['buyer_count'] as num?)?.toInt() ?? 0,
+    );
   }
 
   /// All-time (not date-filtered) per-buyer totals, for the Buyers/ledger screens.
   Future<List<BuyerOverallSummary>> getAllBuyerOverallSummaries() async {
-    final salesSnapshot = await _sales.get();
-    final paymentsSnapshot = await _payments.get();
+    final db = await database;
+    final salesRows = await db.rawQuery(
+      'SELECT buyer_name, SUM(amount) as total, SUM(kilograms) as total_kg FROM sales WHERE deleted = 0 GROUP BY buyer_name',
+    );
+    final paymentRows = await db.rawQuery(
+      'SELECT buyer_name, SUM(amount_given) as given FROM payments WHERE deleted = 0 GROUP BY buyer_name',
+    );
+    final givenByBuyer = <String, double>{
+      for (final row in paymentRows)
+        row['buyer_name'] as String: (row['given'] as num?)?.toDouble() ?? 0.0,
+    };
 
-    final totalsByBuyer = <String, double>{};
-    final kgByBuyer = <String, double>{};
-    for (final doc in salesSnapshot.docs) {
-      final data = doc.data();
-      final buyerName = data['buyer_name'] as String;
-      totalsByBuyer[buyerName] =
-          (totalsByBuyer[buyerName] ?? 0) + (data['amount'] as num).toDouble();
-      kgByBuyer[buyerName] = (kgByBuyer[buyerName] ?? 0) + (data['kilograms'] as num).toDouble();
-    }
-    final givenByBuyer = <String, double>{};
-    for (final doc in paymentsSnapshot.docs) {
-      final data = doc.data();
-      final buyerName = data['buyer_name'] as String;
-      givenByBuyer[buyerName] =
-          (givenByBuyer[buyerName] ?? 0) + (data['amount_given'] as num).toDouble();
-    }
-
-    final summaries = totalsByBuyer.entries
-        .map((entry) => BuyerOverallSummary(
-              buyerName: entry.key,
-              totalAmount: entry.value,
-              totalKilograms: kgByBuyer[entry.key] ?? 0.0,
-              totalGiven: givenByBuyer[entry.key] ?? 0.0,
-            ))
-        .toList();
+    final summaries = salesRows.map((row) {
+      final buyerName = row['buyer_name'] as String;
+      return BuyerOverallSummary(
+        buyerName: buyerName,
+        totalAmount: (row['total'] as num?)?.toDouble() ?? 0.0,
+        totalKilograms: (row['total_kg'] as num?)?.toDouble() ?? 0.0,
+        totalGiven: givenByBuyer[buyerName] ?? 0.0,
+      );
+    }).toList();
 
     summaries.sort((a, b) {
       final balanceCompare = b.balance.compareTo(a.balance);
@@ -231,75 +411,81 @@ class DatabaseHelper {
   }
 
   Future<List<Sale>> getSalesForBuyerAllTime(String buyerName) async {
-    final snapshot = await _sales.where('buyer_name', isEqualTo: buyerName).get();
-    final sales = snapshot.docs.map((doc) => Sale.fromMap(doc.id, doc.data())).toList();
-    sales.sort((a, b) {
-      final dateCompare = b.date.compareTo(a.date);
-      if (dateCompare != 0) return dateCompare;
-      return b.createdAt.compareTo(a.createdAt);
-    });
-    return sales;
+    final db = await database;
+    final rows = await db.query(
+      'sales',
+      where: 'buyer_name = ? AND deleted = 0',
+      whereArgs: [buyerName],
+      orderBy: 'date DESC, created_at DESC',
+    );
+    return rows.map((row) => Sale.fromMap(row['id'] as String, row)).toList();
   }
 
   Future<List<Payment>> getPaymentsForBuyerAllTime(String buyerName) async {
-    final snapshot = await _payments.where('buyer_name', isEqualTo: buyerName).get();
-    final payments = snapshot.docs.map((doc) => Payment.fromMap(doc.id, doc.data())).toList();
-    payments.sort((a, b) {
-      final dateCompare = b.date.compareTo(a.date);
-      if (dateCompare != 0) return dateCompare;
-      return b.createdAt.compareTo(a.createdAt);
-    });
-    return payments;
+    final db = await database;
+    final rows = await db.query(
+      'payments',
+      where: 'buyer_name = ? AND deleted = 0',
+      whereArgs: [buyerName],
+      orderBy: 'date DESC, created_at DESC',
+    );
+    return rows.map((row) => Payment.fromMap(row['id'] as String, row)).toList();
   }
 
   // ---------------- Reports aggregation ----------------
 
   Future<List<CategoryTotal>> getCategoryTotals(String startDate, String endDate) async {
-    final sales = await getSalesForDateRange(startDate, endDate);
-    final amountByCategory = <String, double>{};
-    final kgByCategory = <String, double>{};
-    for (final sale in sales) {
-      amountByCategory[sale.category] = (amountByCategory[sale.category] ?? 0) + sale.amount;
-      kgByCategory[sale.category] = (kgByCategory[sale.category] ?? 0) + sale.kilograms;
-    }
-    final totals = amountByCategory.entries
-        .map((entry) => CategoryTotal(
-              category: entry.key,
-              amount: entry.value,
-              kilograms: kgByCategory[entry.key] ?? 0.0,
+    final db = await database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT category, SUM(amount) as total, SUM(kilograms) as total_kg
+      FROM sales WHERE date BETWEEN ? AND ? AND deleted = 0
+      GROUP BY category ORDER BY total DESC
+      ''',
+      [startDate, endDate],
+    );
+    return rows
+        .map((row) => CategoryTotal(
+              category: row['category'] as String,
+              amount: (row['total'] as num?)?.toDouble() ?? 0.0,
+              kilograms: (row['total_kg'] as num?)?.toDouble() ?? 0.0,
             ))
         .toList();
-    totals.sort((a, b) => b.amount.compareTo(a.amount));
-    return totals;
   }
 
   Future<List<BuyerTotal>> getBuyerTotals(String startDate, String endDate) async {
-    final sales = await getSalesForDateRange(startDate, endDate);
-    final amountByBuyer = <String, double>{};
-    final kgByBuyer = <String, double>{};
-    for (final sale in sales) {
-      amountByBuyer[sale.buyerName] = (amountByBuyer[sale.buyerName] ?? 0) + sale.amount;
-      kgByBuyer[sale.buyerName] = (kgByBuyer[sale.buyerName] ?? 0) + sale.kilograms;
-    }
-    final totals = amountByBuyer.entries
-        .map((entry) => BuyerTotal(
-              buyerName: entry.key,
-              amount: entry.value,
-              kilograms: kgByBuyer[entry.key] ?? 0.0,
+    final db = await database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT buyer_name, SUM(amount) as total, SUM(kilograms) as total_kg
+      FROM sales WHERE date BETWEEN ? AND ? AND deleted = 0
+      GROUP BY buyer_name ORDER BY total DESC
+      ''',
+      [startDate, endDate],
+    );
+    return rows
+        .map((row) => BuyerTotal(
+              buyerName: row['buyer_name'] as String,
+              amount: (row['total'] as num?)?.toDouble() ?? 0.0,
+              kilograms: (row['total_kg'] as num?)?.toDouble() ?? 0.0,
             ))
         .toList();
-    totals.sort((a, b) => b.amount.compareTo(a.amount));
-    return totals;
   }
 
   Future<List<DailyTotal>> getDailyTotals(DateTime start, DateTime end) async {
+    final db = await database;
     final startDate = formatDbDate(start);
     final endDate = formatDbDate(end);
-    final sales = await getSalesForDateRange(startDate, endDate);
-    final totalsByDate = <String, double>{};
-    for (final sale in sales) {
-      totalsByDate[sale.date] = (totalsByDate[sale.date] ?? 0) + sale.amount;
-    }
+    final rows = await db.rawQuery(
+      '''
+      SELECT date, SUM(amount) as total FROM sales
+      WHERE date BETWEEN ? AND ? AND deleted = 0 GROUP BY date
+      ''',
+      [startDate, endDate],
+    );
+    final totalsByDate = <String, double>{
+      for (final row in rows) row['date'] as String: (row['total'] as num?)?.toDouble() ?? 0.0,
+    };
     return dbDatesInRange(start, end)
         .map((date) => DailyTotal(date: dbDateFormat.parse(date), amount: totalsByDate[date] ?? 0.0))
         .toList();
@@ -308,94 +494,129 @@ class DatabaseHelper {
   // ---------------- Investors / Expenses / Profit shares ----------------
 
   Future<void> insertInvestor(Investor investor) async {
-    await _investors.add(investor.toMap());
+    final db = await database;
+    final map = investor.toMap()
+      ..['id'] = newId()
+      ..['updated_at'] = _now()
+      ..['deleted'] = 0
+      ..['synced'] = 0;
+    await db.insert('investors', map);
+  }
+
+  Future<void> updateInvestor(Investor investor) async {
+    final db = await database;
+    final map = investor.toMap()
+      ..['updated_at'] = _now()
+      ..['synced'] = 0;
+    await db.update('investors', map, where: 'id = ?', whereArgs: [investor.id]);
+  }
+
+  Future<void> deleteInvestor(String id) async {
+    final db = await database;
+    await db.update(
+      'investors',
+      {'deleted': 1, 'updated_at': _now(), 'synced': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// All individual investment records for one investor (all-time), for the
+  /// investor detail/edit screen.
+  Future<List<Investor>> getInvestorRecords(String name) async {
+    final db = await database;
+    final rows = await db.query(
+      'investors',
+      where: 'name = ? AND deleted = 0',
+      whereArgs: [name],
+      orderBy: 'date DESC, created_at DESC',
+    );
+    return rows.map((row) => Investor.fromMap(row['id'] as String, row)).toList();
   }
 
   Future<void> insertExpense(Expense expense) async {
-    await _expenses.add(expense.toMap());
+    final db = await database;
+    final map = expense.toMap()
+      ..['id'] = newId()
+      ..['updated_at'] = _now()
+      ..['deleted'] = 0
+      ..['synced'] = 0;
+    await db.insert('expenses', map);
   }
 
   Future<void> insertProfitShare(ProfitShare share) async {
-    await _profitShares.add(share.toMap());
+    final db = await database;
+    final map = share.toMap()
+      ..['id'] = newId()
+      ..['updated_at'] = _now()
+      ..['deleted'] = 0
+      ..['synced'] = 0;
+    await db.insert('profit_shares', map);
   }
 
   Future<List<String>> getDistinctInvestorNames() async {
-    final snapshot = await _investors.get();
-    final names = <String>{for (final doc in snapshot.docs) doc.data()['name'] as String};
-    final sorted = names.toList()..sort();
-    return sorted;
+    final db = await database;
+    final rows = await db
+        .rawQuery('SELECT DISTINCT name FROM investors WHERE deleted = 0 ORDER BY name ASC');
+    return rows.map((row) => row['name'] as String).toList();
   }
 
   Future<List<Expense>> getAllExpenses() async {
-    final snapshot = await _expenses.get();
-    final expenses = snapshot.docs.map((doc) => Expense.fromMap(doc.id, doc.data())).toList();
-    _sortByDateDesc(expenses, (e) => e.date, (e) => e.createdAt);
-    return expenses;
+    final db = await database;
+    final rows =
+        await db.query('expenses', where: 'deleted = 0', orderBy: 'date DESC, created_at DESC');
+    return rows.map((row) => Expense.fromMap(row['id'] as String, row)).toList();
   }
 
   Future<List<Expense>> getExpenseList(String startDate, String endDate) async {
-    final snapshot = await _expenses
-        .where('date', isGreaterThanOrEqualTo: startDate)
-        .where('date', isLessThanOrEqualTo: endDate)
-        .get();
-    final expenses = snapshot.docs.map((doc) => Expense.fromMap(doc.id, doc.data())).toList();
-    _sortByDateDesc(expenses, (e) => e.date, (e) => e.createdAt);
-    return expenses;
+    final db = await database;
+    final rows = await db.query(
+      'expenses',
+      where: 'date BETWEEN ? AND ? AND deleted = 0',
+      whereArgs: [startDate, endDate],
+      orderBy: 'date DESC, created_at DESC',
+    );
+    return rows.map((row) => Expense.fromMap(row['id'] as String, row)).toList();
   }
 
   Future<List<Investor>> getInvestorList(String startDate, String endDate) async {
-    final snapshot = await _investors
-        .where('date', isGreaterThanOrEqualTo: startDate)
-        .where('date', isLessThanOrEqualTo: endDate)
-        .get();
-    final investors = snapshot.docs.map((doc) => Investor.fromMap(doc.id, doc.data())).toList();
-    _sortByDateDesc(investors, (i) => i.date, (i) => i.createdAt);
-    return investors;
+    final db = await database;
+    final rows = await db.query(
+      'investors',
+      where: 'date BETWEEN ? AND ? AND deleted = 0',
+      whereArgs: [startDate, endDate],
+      orderBy: 'date DESC, created_at DESC',
+    );
+    return rows.map((row) => Investor.fromMap(row['id'] as String, row)).toList();
   }
 
   Future<List<ProfitShare>> getProfitShareList(String startDate, String endDate) async {
-    final snapshot = await _profitShares
-        .where('date', isGreaterThanOrEqualTo: startDate)
-        .where('date', isLessThanOrEqualTo: endDate)
-        .get();
-    final shares = snapshot.docs.map((doc) => ProfitShare.fromMap(doc.id, doc.data())).toList();
-    _sortByDateDesc(shares, (s) => s.date, (s) => s.createdAt);
-    return shares;
-  }
-
-  void _sortByDateDesc<T>(
-    List<T> items,
-    String Function(T) date,
-    String Function(T) createdAt,
-  ) {
-    items.sort((a, b) {
-      final dateCompare = date(b).compareTo(date(a));
-      if (dateCompare != 0) return dateCompare;
-      return createdAt(b).compareTo(createdAt(a));
-    });
+    final db = await database;
+    final rows = await db.query(
+      'profit_shares',
+      where: 'date BETWEEN ? AND ? AND deleted = 0',
+      whereArgs: [startDate, endDate],
+      orderBy: 'date DESC, created_at DESC',
+    );
+    return rows.map((row) => ProfitShare.fromMap(row['id'] as String, row)).toList();
   }
 
   /// All-time per-investor invested vs. shared totals, merged and sorted by name.
   Future<List<InvestorTotal>> getInvestorTotals() async {
-    final investorSnapshot = await _investors.get();
-    final shareSnapshot = await _profitShares.get();
+    final db = await database;
+    final investedRows = await db
+        .rawQuery('SELECT name, SUM(amount) as total FROM investors WHERE deleted = 0 GROUP BY name');
+    final sharedRows = await db.rawQuery(
+      'SELECT investor_name, SUM(amount) as total FROM profit_shares WHERE deleted = 0 GROUP BY investor_name',
+    );
+    final sharedByName = <String, double>{
+      for (final row in sharedRows)
+        row['investor_name'] as String: (row['total'] as num?)?.toDouble() ?? 0.0,
+    };
 
-    final investedByName = <String, double>{};
-    for (final doc in investorSnapshot.docs) {
-      final data = doc.data();
-      final name = data['name'] as String;
-      investedByName[name] = (investedByName[name] ?? 0) + (data['amount'] as num).toDouble();
-    }
-    final sharedByName = <String, double>{};
-    for (final doc in shareSnapshot.docs) {
-      final data = doc.data();
-      final name = data['investor_name'] as String;
-      sharedByName[name] = (sharedByName[name] ?? 0) + (data['amount'] as num).toDouble();
-    }
-
-    final totals = investedByName.entries.map((entry) {
-      final name = entry.key;
-      final invested = entry.value;
+    final totals = investedRows.map((row) {
+      final name = row['name'] as String;
+      final invested = (row['total'] as num?)?.toDouble() ?? 0.0;
       final shared = sharedByName.remove(name) ?? 0.0;
       return InvestorTotal(name: name, invested: invested, shared: shared, net: invested - shared);
     }).toList();
@@ -413,23 +634,35 @@ class DatabaseHelper {
     String startDate,
     String endDate,
   ) async {
-    final investors = await getInvestorList(startDate, endDate);
-    final expenses = await getExpenseList(startDate, endDate);
-    final shares = await getProfitShareList(startDate, endDate);
+    final db = await database;
+    final investedRows = await db.rawQuery(
+      'SELECT SUM(amount) as total FROM investors WHERE date BETWEEN ? AND ? AND deleted = 0',
+      [startDate, endDate],
+    );
+    final expenseRows = await db.rawQuery(
+      'SELECT SUM(amount) as total FROM expenses WHERE date BETWEEN ? AND ? AND deleted = 0',
+      [startDate, endDate],
+    );
+    final sharedRows = await db.rawQuery(
+      'SELECT SUM(amount) as total FROM profit_shares WHERE date BETWEEN ? AND ? AND deleted = 0',
+      [startDate, endDate],
+    );
     return (
-      totalInvested: investors.fold(0.0, (total, i) => total + i.amount),
-      totalExpenses: expenses.fold(0.0, (total, e) => total + e.amount),
-      totalShared: shares.fold(0.0, (total, s) => total + s.amount),
+      totalInvested: (investedRows.first['total'] as num?)?.toDouble() ?? 0.0,
+      totalExpenses: (expenseRows.first['total'] as num?)?.toDouble() ?? 0.0,
+      totalShared: (sharedRows.first['total'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
   Future<({double totalInvestedAllTime, double totalSharedAllTime})> getAllTimeInvestedAndShared() async {
-    final investorSnapshot = await _investors.get();
-    final shareSnapshot = await _profitShares.get();
-    final totalInvested = investorSnapshot.docs
-        .fold(0.0, (total, doc) => total + (doc.data()['amount'] as num).toDouble());
-    final totalShared = shareSnapshot.docs
-        .fold(0.0, (total, doc) => total + (doc.data()['amount'] as num).toDouble());
-    return (totalInvestedAllTime: totalInvested, totalSharedAllTime: totalShared);
+    final db = await database;
+    final investedRows =
+        await db.rawQuery('SELECT SUM(amount) as total FROM investors WHERE deleted = 0');
+    final sharedRows =
+        await db.rawQuery('SELECT SUM(amount) as total FROM profit_shares WHERE deleted = 0');
+    return (
+      totalInvestedAllTime: (investedRows.first['total'] as num?)?.toDouble() ?? 0.0,
+      totalSharedAllTime: (sharedRows.first['total'] as num?)?.toDouble() ?? 0.0,
+    );
   }
 }

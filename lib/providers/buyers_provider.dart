@@ -40,25 +40,31 @@ class BuyersProvider extends ChangeNotifier {
   Future<void> loadAllBuyers() async {
     _loading = true;
     notifyListeners();
-    _allBuyers = await _db.getAllBuyerOverallSummaries();
-    _loading = false;
-    notifyListeners();
+    try {
+      _allBuyers = await _db.getAllBuyerOverallSummaries();
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> loadBuyerHistory(String buyerName) async {
     _historyLoading = true;
     notifyListeners();
-    if (_allBuyers.isEmpty) {
-      _allBuyers = await _db.getAllBuyerOverallSummaries();
-    }
-    _historySales = await _db.getSalesForBuyerAllTime(buyerName);
-    _historyPayments = await _db.getPaymentsForBuyerAllTime(buyerName);
     try {
-      _selectedBuyerSummary = _allBuyers.firstWhere((b) => b.buyerName == buyerName);
-    } catch (_) {
-      _selectedBuyerSummary = null;
+      if (_allBuyers.isEmpty) {
+        _allBuyers = await _db.getAllBuyerOverallSummaries();
+      }
+      _historySales = await _db.getSalesForBuyerAllTime(buyerName);
+      _historyPayments = await _db.getPaymentsForBuyerAllTime(buyerName);
+      try {
+        _selectedBuyerSummary = _allBuyers.firstWhere((b) => b.buyerName == buyerName);
+      } catch (_) {
+        _selectedBuyerSummary = null;
+      }
+    } finally {
+      _historyLoading = false;
+      notifyListeners();
     }
-    _historyLoading = false;
-    notifyListeners();
   }
 }
