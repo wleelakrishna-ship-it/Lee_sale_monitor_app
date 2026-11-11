@@ -1,6 +1,11 @@
 # Claude Code local settings (contains an API auth token — never commit)
 .claude/
 
+# Release signing config (contains the keystore path and passwords — never commit)
+android/key.properties
+*.jks
+*.keystore
+
 # Miscellaneous
 *.class
 *.log
