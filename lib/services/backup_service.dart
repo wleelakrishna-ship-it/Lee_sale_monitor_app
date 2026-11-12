@@ -21,10 +21,10 @@ class BackupService {
 
     await db.execute("VACUUM INTO '${path.replaceAll("'", "''")}'");
 
-    await Share.shareXFiles(
-      [XFile(path)],
+    await SharePlus.instance.share(ShareParams(
+      files: [XFile(path)],
       subject: 'LEE Sale Monitor backup',
       text: 'Backup of LEE Sale Monitor data — $timestamp',
-    );
+    ));
   }
 }

@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,6 +8,7 @@ import '../providers/language_provider.dart';
 import '../providers/sales_provider.dart';
 import '../services/auth_service.dart';
 import '../services/backup_service.dart';
+import '../services/restore_service.dart';
 import '../services/sync_service.dart';
 import '../utils/date_utils.dart';
 import '../utils/formatters.dart';
@@ -29,6 +31,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _syncing = false;
   bool _backingUp = false;
+  bool _restoring = false;
   DateTime? _lastSyncedAt;
 
   @override
@@ -91,6 +94,48 @@ class _HomeScreenState extends State<HomeScreen> {
           .showSnackBar(SnackBar(content: Text(tr(context, 'backup_failed_message'))));
     } finally {
       if (mounted) setState(() => _backingUp = false);
+    }
+  }
+
+  Future<void> _restore() async {
+    final picked = await FilePicker.pickFile();
+    final path = picked?.path;
+    if (path == null || !mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(tr(context, 'restore_confirm_title')),
+        content: Text(tr(context, 'restore_confirm_body')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(tr(context, 'cancel')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(tr(context, 'restore_backup_action')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _restoring = true);
+    try {
+      final result = await RestoreService().restoreFrom(path);
+      if (!mounted) return;
+      await context.read<SalesProvider>().loadTodayOverview();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(context, 'restore_result_message', {'merged': '${result.merged}'})),
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(tr(context, 'restore_failed_message'))));
+    } finally {
+      if (mounted) setState(() => _restoring = false);
     }
   }
 
@@ -162,8 +207,8 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: tr(context, 'sync_tooltip'),
             onPressed: _syncing ? null : _sync,
           ),
-          IconButton(
-            icon: _backingUp
+          PopupMenuButton<String>(
+            icon: (_backingUp || _restoring)
                 ? const SizedBox(
                     height: 20,
                     width: 20,
@@ -171,7 +216,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   )
                 : const Icon(Icons.save_alt_outlined),
             tooltip: tr(context, 'backup_tooltip'),
-            onPressed: _backingUp ? null : _backup,
+            enabled: !_backingUp && !_restoring,
+            onSelected: (value) {
+              if (value == 'backup') _backup();
+              if (value == 'restore') _restore();
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(value: 'backup', child: Text(tr(context, 'backup_now_action'))),
+              PopupMenuItem(value: 'restore', child: Text(tr(context, 'restore_backup_action'))),
+            ],
           ),
           IconButton(
             icon: const Icon(Icons.language),

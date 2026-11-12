@@ -226,8 +226,15 @@ const Map<String, String> enStrings = {
   'synced_hours_ago': 'Synced {count}h ago',
   'synced_days_ago': 'Synced {count}d ago',
   'sync_result_message': 'Updated successfully — {up} uploaded, {down} downloaded',
-  'backup_tooltip': 'Backup to device',
+  'backup_tooltip': 'Backup / Restore',
   'backup_failed_message': 'Could not create a backup. Please try again.',
+  'backup_now_action': 'Create backup',
+  'restore_backup_action': 'Restore from file',
+  'restore_confirm_title': 'Restore from backup?',
+  'restore_confirm_body':
+      'This merges the selected backup file into your current data. Nothing already on this phone will be overwritten unless the backup has a newer version of it.',
+  'restore_result_message': 'Restore complete — {merged} record(s) added or updated',
+  'restore_failed_message': 'Could not read that file as a LEE Sale Monitor backup.',
 };
 
 /// Tamil translations. Keys must exactly mirror [enStrings].
@@ -451,8 +458,15 @@ const Map<String, String> taStrings = {
   'synced_hours_ago': '{count} மணி நேரத்திற்கு முன் ஒத்திசைக்கப்பட்டது',
   'synced_days_ago': '{count} நாட்களுக்கு முன் ஒத்திசைக்கப்பட்டது',
   'sync_result_message': 'வெற்றிகரமாக புதுப்பிக்கப்பட்டது — {up} பதிவேற்றப்பட்டது, {down} பதிவிறக்கப்பட்டது',
-  'backup_tooltip': 'சாதனத்தில் காப்புப்பிரதி எடுக்கவும்',
+  'backup_tooltip': 'காப்புப்பிரதி / மீட்டமை',
   'backup_failed_message': 'காப்புப்பிரதி எடுக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+  'backup_now_action': 'காப்புப்பிரதி எடு',
+  'restore_backup_action': 'கோப்பிலிருந்து மீட்டமை',
+  'restore_confirm_title': 'காப்புப்பிரதியிலிருந்து மீட்டமைக்கவா?',
+  'restore_confirm_body':
+      'தேர்ந்தெடுக்கப்பட்ட காப்புப்பிரதி கோப்பு உங்கள் தற்போதைய தரவுடன் இணைக்கப்படும். காப்புப்பிரதியில் புதிய பதிவு இல்லாவிட்டால், இந்த சாதனத்தில் உள்ளவை மாற்றப்படாது.',
+  'restore_result_message': 'மீட்டமைப்பு முடிந்தது — {merged} பதிவுகள் சேர்க்கப்பட்டன/புதுப்பிக்கப்பட்டன',
+  'restore_failed_message': 'அந்த கோப்பை LEE Sale Monitor காப்புப்பிரதியாகப் படிக்க முடியவில்லை.',
 };
 
 /// Looks up [key] in the current language (falling back to English, then the

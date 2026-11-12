@@ -45,11 +45,11 @@ class ExportService {
     final file = File('${directory.path}/$fileName');
     await file.writeAsString(csvString);
 
-    await Share.shareXFiles(
-      [XFile(file.path)],
+    await SharePlus.instance.share(ShareParams(
+      files: [XFile(file.path)],
       subject: 'Fish Sales Report - ${range.label}',
       text: 'Fish sales report for ${range.label}',
-    );
+    ));
   }
 
   Future<void> exportFinanceCsv({
@@ -94,10 +94,10 @@ class ExportService {
     final file = File('${directory.path}/$fileName');
     await file.writeAsString(csvString);
 
-    await Share.shareXFiles(
-      [XFile(file.path)],
+    await SharePlus.instance.share(ShareParams(
+      files: [XFile(file.path)],
       subject: 'Fish Business Finance Report - ${range.label}',
       text: 'Finance report for ${range.label}',
-    );
+    ));
   }
 }
