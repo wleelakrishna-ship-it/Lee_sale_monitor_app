@@ -158,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.cloud_upload_outlined),
+                : const Icon(Icons.cloud_sync_outlined),
             tooltip: tr(context, 'sync_tooltip'),
             onPressed: _syncing ? null : _sync,
           ),
@@ -169,7 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.backup_outlined),
+                : const Icon(Icons.save_alt_outlined),
             tooltip: tr(context, 'backup_tooltip'),
             onPressed: _backingUp ? null : _backup,
           ),
@@ -208,13 +208,35 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Expanded(
                   child: SummaryCard(
-                    title: tr(context, 'today_amount'),
+                    title: tr(context, 'grand_total_amount'),
                     value: formatCurrency(totals.totalAmount),
                     icon: Icons.currency_rupee,
                     color: Colors.teal,
                   ),
                 ),
                 const SizedBox(width: 10),
+                Expanded(
+                  child: SummaryCard(
+                    title: tr(context, 'given_amount_total'),
+                    value: formatCurrency(sales.givenTotalToday),
+                    icon: Icons.payments,
+                    color: Colors.green,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SummaryCard(
+                    title: tr(context, 'balance_amount_total'),
+                    value: formatCurrency(sales.balanceTotalToday),
+                    icon: Icons.account_balance_wallet_outlined,
+                    color: sales.balanceTotalToday > 0 ? Colors.red.shade700 : Colors.green.shade700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
                 Expanded(
                   child: SummaryCard(
                     title: tr(context, 'kilograms_sold'),

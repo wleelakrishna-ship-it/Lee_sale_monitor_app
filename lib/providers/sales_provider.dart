@@ -37,6 +37,12 @@ class SalesProvider extends ChangeNotifier {
   ({double totalAmount, double totalKg, int buyerCount}) get dayTotals => _dayTotals;
   bool get loading => _loading;
 
+  /// Total paid by buyers today (grand total minus this is what's still owed).
+  double get givenTotalToday => _todaySummaries.fold(0.0, (sum, s) => sum + s.given);
+
+  /// Total still owed by buyers today (grand total − given so far).
+  double get balanceTotalToday => _dayTotals.totalAmount - givenTotalToday;
+
   List<Sale> get buyerSales => _buyerSales;
   List<Payment> get buyerPayments => _buyerPayments;
   bool get buyerDetailLoading => _buyerDetailLoading;

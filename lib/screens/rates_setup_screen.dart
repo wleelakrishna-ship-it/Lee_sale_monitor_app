@@ -27,6 +27,11 @@ class _RatesSetupScreenState extends State<RatesSetupScreen> {
     final rateController = TextEditingController(
       text: existing != null ? existing.ratePerKg.toString() : '',
     );
+    final commissionController = TextEditingController(
+      text: existing != null && existing.commissionPerKg > 0
+          ? existing.commissionPerKg.toString()
+          : '',
+    );
     final formKey = GlobalKey<FormState>();
     final provider = context.read<RatesProvider>();
     bool submitting = false;
@@ -45,11 +50,14 @@ class _RatesSetupScreenState extends State<RatesSetupScreen> {
             });
             final category = nameController.text.trim();
             final rate = double.parse(rateController.text);
+            final commission = double.tryParse(commissionController.text) ?? 0.0;
             try {
               if (existing == null) {
-                await provider.addCategory(category, rate);
+                await provider.addCategory(category, rate, commission);
               } else {
-                await provider.updateCategory(existing.copyWith(category: category, ratePerKg: rate));
+                await provider.updateCategory(
+                  existing.copyWith(category: category, ratePerKg: rate, commissionPerKg: commission),
+                );
               }
               if (dialogContext.mounted) Navigator.pop(dialogContext);
             } catch (_) {
@@ -85,6 +93,26 @@ class _RatesSetupScreenState extends State<RatesSetupScreen> {
                     validator: (value) {
                       final parsed = double.tryParse(value ?? '');
                       if (parsed == null || parsed <= 0) return tr(context, 'enter_valid_rate');
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: commissionController,
+                    enabled: !submitting,
+                    decoration: InputDecoration(
+                      labelText: tr(context, 'commission_per_kg_label'),
+                      helperText: tr(context, 'commission_per_kg_helper'),
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return null;
+                      final parsed = double.tryParse(value);
+                      if (parsed == null || parsed < 0) return tr(context, 'enter_valid_commission');
+                      final rate = double.tryParse(rateController.text);
+                      if (rate != null && parsed > rate) {
+                        return tr(context, 'commission_exceeds_rate');
+                      }
                       return null;
                     },
                   ),
@@ -173,8 +201,13 @@ class _RatesSetupScreenState extends State<RatesSetupScreen> {
                       margin: const EdgeInsets.symmetric(vertical: 6),
                       child: ListTile(
                         title: Text(rate.category),
-                        subtitle:
-                            Text('${formatCurrency(rate.ratePerKg)} ${tr(context, 'rate_per_kg_suffix')}'),
+                        subtitle: Text(
+                          rate.commissionPerKg > 0
+                              ? '${formatCurrency(rate.ratePerKg)} ${tr(context, 'rate_per_kg_suffix')} • '
+                                  '${tr(context, 'commission_word')} ${formatCurrency(rate.commissionPerKg)} • '
+                                  '${tr(context, 'net_word')} ${formatCurrency(rate.netPerKg)}'
+                              : '${formatCurrency(rate.ratePerKg)} ${tr(context, 'rate_per_kg_suffix')}',
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [

@@ -35,14 +35,12 @@ class DatabaseHelper {
     return db;
   }
 
-  // Bumped well past every schema version this app has ever shipped (the original
-  // pre-sync version of this app used version 2, with an incompatible integer-id
-  // schema). Opening an old database with a lower version number than it already has
-  // makes sqflite refuse to open it at all — every local read/write would fail with
-  // "check your internet connection" (the generic error message), which is exactly
-  // what happened. `onUpgrade`/`onDowngrade` both rebuild the schema fresh below, so
-  // this version only ever needs to go up from here.
-  static const _schemaVersion = 3;
+  // Version 3 fixed a schema-version downgrade bug (see git history) by rebuilding
+  // the database from scratch — safe at the time since this app had no local-first
+  // data yet. From version 3 onward, this is the real source of truth for live
+  // business data, so every later bump MUST migrate additively (ALTER TABLE, never
+  // DROP) or real data gets silently wiped on the next app open.
+  static const _schemaVersion = 4;
 
   Future<Database> _initDatabase() async {
     final databasesPath = await getDatabasesPath();
@@ -51,7 +49,19 @@ class DatabaseHelper {
       path,
       version: _schemaVersion,
       onCreate: (db, version) => _createSchema(db),
-      onUpgrade: (db, oldVersion, newVersion) => _rebuildSchema(db),
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 3) {
+          // Pre-3 schema (integer ids, no sync columns) is fundamentally
+          // incompatible — nothing meaningful to preserve, so rebuild clean.
+          await _rebuildSchema(db);
+          return;
+        }
+        if (oldVersion < 4) {
+          await db.execute(
+            'ALTER TABLE category_rates ADD COLUMN commission_per_kg REAL NOT NULL DEFAULT 0',
+          );
+        }
+      },
       onDowngrade: (db, oldVersion, newVersion) => _rebuildSchema(db),
     );
   }
@@ -89,6 +99,7 @@ class DatabaseHelper {
         date TEXT NOT NULL,
         category TEXT NOT NULL,
         rate_per_kg REAL NOT NULL,
+        commission_per_kg REAL NOT NULL DEFAULT 0,
         $syncColumns
       )
     ''');

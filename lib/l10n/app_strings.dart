@@ -22,7 +22,9 @@ const Map<String, String> enStrings = {
 
   // Home
   'app_title': 'LEE Sale Monitor',
-  'today_amount': "Today's amount",
+  'grand_total_amount': 'Grand total',
+  'given_amount_total': 'Given amount',
+  'balance_amount_total': 'Balance amount',
   'kilograms_sold': 'Kilograms sold',
   'buyers_today': 'Buyers today',
   'nav_new_sale_title': 'New Sale Entry',
@@ -53,6 +55,12 @@ const Map<String, String> enStrings = {
   'fish_category_label': 'Fish category',
   'enter_category_name': 'Enter a category name',
   'rate_per_kg_label': 'Rate per kg (₹)',
+  'commission_per_kg_label': 'Agent commission per kg (₹)',
+  'commission_per_kg_helper': 'Leave blank if none. What you pay the agent — the rest is yours.',
+  'enter_valid_commission': 'Enter a valid commission (0 or more)',
+  'commission_exceeds_rate': 'Commission cannot be more than the rate',
+  'commission_word': 'Commission',
+  'net_word': 'Net',
   'enter_valid_rate': 'Enter a valid rate',
 
   // Sale Entry
@@ -239,7 +247,9 @@ const Map<String, String> taStrings = {
 
   // Home
   'app_title': 'LEE விற்பனை கண்காணிப்பு',
-  'today_amount': 'இன்றைய தொகை',
+  'grand_total_amount': 'மொத்த தொகை',
+  'given_amount_total': 'கொடுத்த தொகை',
+  'balance_amount_total': 'நிலுவைத் தொகை',
   'kilograms_sold': 'விற்ற கிலோ',
   'buyers_today': 'இன்று வாங்கியவர்கள்',
   'nav_new_sale_title': 'புதிய விற்பனை பதிவு',
@@ -270,6 +280,12 @@ const Map<String, String> taStrings = {
   'fish_category_label': 'மீன் வகை',
   'enter_category_name': 'வகையின் பெயரை உள்ளிடவும்',
   'rate_per_kg_label': 'கிலோ விலை (₹)',
+  'commission_per_kg_label': 'முகவர் கமிஷன் / கிலோ (₹)',
+  'commission_per_kg_helper': 'கமிஷன் இல்லை என்றால் காலியாக விடவும். மீதமுள்ளது உங்களுடையது.',
+  'enter_valid_commission': 'சரியான கமிஷனை உள்ளிடவும் (0 அல்லது அதற்கு மேல்)',
+  'commission_exceeds_rate': 'கமிஷன் விலையை விட அதிகமாக இருக்க முடியாது',
+  'commission_word': 'கமிஷன்',
+  'net_word': 'நிகரம்',
   'enter_valid_rate': 'சரியான விலையை உள்ளிடவும்',
 
   // Sale Entry

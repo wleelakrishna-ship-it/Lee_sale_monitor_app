@@ -24,9 +24,14 @@ class RatesProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> addCategory(String category, double ratePerKg) async {
+  Future<void> addCategory(String category, double ratePerKg, double commissionPerKg) async {
     await _db.insertCategoryRate(
-      CategoryRate(date: todayDbDate(), category: category, ratePerKg: ratePerKg),
+      CategoryRate(
+        date: todayDbDate(),
+        category: category,
+        ratePerKg: ratePerKg,
+        commissionPerKg: commissionPerKg,
+      ),
     );
     await loadTodayRates();
   }
@@ -46,7 +51,12 @@ class RatesProvider extends ChangeNotifier {
     if (previous.isEmpty) return false;
     for (final rate in previous) {
       await _db.insertCategoryRate(
-        CategoryRate(date: todayDbDate(), category: rate.category, ratePerKg: rate.ratePerKg),
+        CategoryRate(
+          date: todayDbDate(),
+          category: rate.category,
+          ratePerKg: rate.ratePerKg,
+          commissionPerKg: rate.commissionPerKg,
+        ),
       );
     }
     await loadTodayRates();
