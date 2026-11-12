@@ -57,6 +57,7 @@ class _BuyerDayDetailScreenState extends State<BuyerDayDetailScreen> {
                   kilograms: kg,
                   amount: rate * kg,
                   createdAt: sale.createdAt,
+                  commissionPerKg: sale.commissionPerKg,
                 ),
               );
               if (dialogContext.mounted) Navigator.pop(dialogContext);

@@ -10,8 +10,14 @@ class CartItem {
   final String category;
   final double ratePerKg;
   final double kilograms;
+  final double commissionPerKg;
 
-  const CartItem({required this.category, required this.ratePerKg, required this.kilograms});
+  const CartItem({
+    required this.category,
+    required this.ratePerKg,
+    required this.kilograms,
+    this.commissionPerKg = 0.0,
+  });
 
   double get amount => ratePerKg * kilograms;
 }
@@ -22,8 +28,8 @@ class SalesProvider extends ChangeNotifier {
   final List<CartItem> _cart = [];
   List<String> _buyerNames = [];
   List<BuyerSummary> _todaySummaries = [];
-  ({double totalAmount, double totalKg, int buyerCount}) _dayTotals =
-      (totalAmount: 0.0, totalKg: 0.0, buyerCount: 0);
+  ({double totalAmount, double totalKg, double totalCommission, int buyerCount}) _dayTotals =
+      (totalAmount: 0.0, totalKg: 0.0, totalCommission: 0.0, buyerCount: 0);
   bool _loading = false;
 
   List<Sale> _buyerSales = [];
@@ -34,7 +40,8 @@ class SalesProvider extends ChangeNotifier {
   double get cartTotal => _cart.fold(0.0, (sum, item) => sum + item.amount);
   List<String> get buyerNames => _buyerNames;
   List<BuyerSummary> get todaySummaries => _todaySummaries;
-  ({double totalAmount, double totalKg, int buyerCount}) get dayTotals => _dayTotals;
+  ({double totalAmount, double totalKg, double totalCommission, int buyerCount}) get dayTotals =>
+      _dayTotals;
   bool get loading => _loading;
 
   /// Total paid by buyers today (grand total minus this is what's still owed).
@@ -80,6 +87,7 @@ class SalesProvider extends ChangeNotifier {
               kilograms: item.kilograms,
               amount: item.amount,
               createdAt: now,
+              commissionPerKg: item.commissionPerKg,
             ))
         .toList();
     await _db.insertSales(sales);

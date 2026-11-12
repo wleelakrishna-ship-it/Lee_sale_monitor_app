@@ -92,6 +92,8 @@ const Map<String, String> enStrings = {
   'no_sales_today': 'No sales recorded yet today.',
   'total_kg_footer': 'Total kg',
   'total_amount_footer': 'Total amount',
+  'commission_footer': 'Commission (agent)',
+  'net_amount_footer': 'Net (mine)',
 
   // Buyer Day Detail (edit)
   'sale_items_section': 'Sale items',
@@ -124,6 +126,8 @@ const Map<String, String> enStrings = {
   'range_custom': 'Custom',
   'total_amount_card': 'Total amount',
   'total_kg_card': 'Total kilograms',
+  'total_commission_card': 'Commission (agent)',
+  'total_net_card': 'Net (mine)',
   'daily_totals_label': 'Daily totals',
   'category_breakdown_label': 'Category breakdown',
   'no_sales_period': 'No sales in this period.',
@@ -324,6 +328,8 @@ const Map<String, String> taStrings = {
   'no_sales_today': 'இன்று இன்னும் விற்பனை பதிவு செய்யப்படவில்லை.',
   'total_kg_footer': 'மொத்த கிலோ',
   'total_amount_footer': 'மொத்த தொகை',
+  'commission_footer': 'கமிஷன் (முகவர்)',
+  'net_amount_footer': 'நிகரம் (எனது)',
 
   // Buyer Day Detail (edit)
   'sale_items_section': 'விற்பனை பொருட்கள்',
@@ -356,6 +362,8 @@ const Map<String, String> taStrings = {
   'range_custom': 'தனிப்பயன்',
   'total_amount_card': 'மொத்த தொகை',
   'total_kg_card': 'மொத்த கிலோ',
+  'total_commission_card': 'கமிஷன் (முகவர்)',
+  'total_net_card': 'நிகரம் (எனது)',
   'daily_totals_label': 'தினசரி மொத்தம்',
   'category_breakdown_label': 'வகை வாரியான விவரம்',
   'no_sales_period': 'இந்த காலக்கட்டத்தில் விற்பனை இல்லை.',

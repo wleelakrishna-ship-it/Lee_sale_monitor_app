@@ -63,7 +63,12 @@ class _SaleEntryScreenState extends State<SaleEntryScreen> {
       return;
     }
     salesProvider.addCartItem(
-      CartItem(category: category.category, ratePerKg: category.ratePerKg, kilograms: kg),
+      CartItem(
+        category: category.category,
+        ratePerKg: category.ratePerKg,
+        kilograms: kg,
+        commissionPerKg: category.commissionPerKg,
+      ),
     );
     _kgController.clear();
     setState(() => _selectedCategory = null);

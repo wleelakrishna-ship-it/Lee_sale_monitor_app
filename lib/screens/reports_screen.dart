@@ -81,6 +81,7 @@ class _ReportsScreenState extends State<ReportsScreen> with SingleTickerProvider
         buyerTotals: provider.buyerTotals,
         totalAmount: provider.totalAmount,
         totalKg: provider.totalKg,
+        totalCommission: provider.totalCommission,
       );
     } finally {
       if (mounted) setState(() => _exporting = false);
@@ -219,6 +220,30 @@ class _SalesReportBody extends StatelessWidget {
             ),
           ],
         ),
+        if (provider.totalCommission > 0) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: SummaryCard(
+                  title: tr(context, 'total_commission_card'),
+                  value: formatCurrency(provider.totalCommission),
+                  icon: Icons.handshake_outlined,
+                  color: Colors.deepOrange,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SummaryCard(
+                  title: tr(context, 'total_net_card'),
+                  value: formatCurrency(provider.totalNet),
+                  icon: Icons.account_balance_wallet_outlined,
+                  color: Colors.green.shade700,
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 24),
         if (provider.dailyTotals.length > 1) ...[
           Text(tr(context, 'daily_totals_label'), style: Theme.of(context).textTheme.titleSmall),

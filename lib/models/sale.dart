@@ -7,6 +7,7 @@ class Sale {
   final double kilograms;
   final double amount;
   final String createdAt;
+  final double commissionPerKg;
 
   const Sale({
     this.id,
@@ -17,7 +18,14 @@ class Sale {
     required this.kilograms,
     required this.amount,
     required this.createdAt,
+    this.commissionPerKg = 0.0,
   });
+
+  /// Total owed to the agent for this sale.
+  double get commissionAmount => commissionPerKg * kilograms;
+
+  /// What's left after paying the agent's commission.
+  double get netAmount => amount - commissionAmount;
 
   Map<String, Object?> toMap() {
     return {
@@ -28,6 +36,7 @@ class Sale {
       'kilograms': kilograms,
       'amount': amount,
       'created_at': createdAt,
+      'commission_per_kg': commissionPerKg,
     };
   }
 
@@ -41,6 +50,7 @@ class Sale {
       kilograms: (map['kilograms'] as num).toDouble(),
       amount: (map['amount'] as num).toDouble(),
       createdAt: map['created_at'] as String,
+      commissionPerKg: (map['commission_per_kg'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

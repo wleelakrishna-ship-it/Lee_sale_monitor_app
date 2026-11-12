@@ -15,11 +15,15 @@ class ReportsProvider extends ChangeNotifier {
 
   double totalAmount = 0;
   double totalKg = 0;
+  double totalCommission = 0;
   List<CategoryTotal> categoryTotals = [];
   List<BuyerTotal> buyerTotals = [];
   List<DailyTotal> dailyTotals = [];
   List<Sale> sales = [];
   bool loading = false;
+
+  /// What's left after paying the agent's commission for the selected range.
+  double get totalNet => totalAmount - totalCommission;
 
   ReportRangeType get rangeType => _rangeType;
   DateRange get range => _range;
@@ -55,6 +59,7 @@ class ReportsProvider extends ChangeNotifier {
       dailyTotals = await _db.getDailyTotals(_range.start, _range.end);
       totalAmount = categoryTotals.fold(0.0, (sum, c) => sum + c.amount);
       totalKg = categoryTotals.fold(0.0, (sum, c) => sum + c.kilograms);
+      totalCommission = categoryTotals.fold(0.0, (sum, c) => sum + c.commission);
     } finally {
       loading = false;
       notifyListeners();

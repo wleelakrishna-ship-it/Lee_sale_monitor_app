@@ -153,14 +153,37 @@ class _TodayOverviewScreenState extends State<TodayOverviewScreen> {
                     color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     border: const Border(top: BorderSide(color: Colors.black12)),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _FooterStat(label: tr(context, 'total_kg_footer'), value: formatKg(totals.totalKg)),
-                      _FooterStat(
-                        label: tr(context, 'total_amount_footer'),
-                        value: formatCurrency(totals.totalAmount),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _FooterStat(
+                              label: tr(context, 'total_kg_footer'), value: formatKg(totals.totalKg)),
+                          _FooterStat(
+                            label: tr(context, 'total_amount_footer'),
+                            value: formatCurrency(totals.totalAmount),
+                          ),
+                        ],
                       ),
+                      if (totals.totalCommission > 0) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            _FooterStat(
+                              label: tr(context, 'commission_footer'),
+                              value: formatCurrency(totals.totalCommission),
+                            ),
+                            _FooterStat(
+                              label: tr(context, 'net_amount_footer'),
+                              value: formatCurrency(totals.totalAmount - totals.totalCommission),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

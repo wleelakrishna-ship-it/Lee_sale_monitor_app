@@ -2,8 +2,17 @@ class CategoryTotal {
   final String category;
   final double amount;
   final double kilograms;
+  final double commission;
 
-  const CategoryTotal({required this.category, required this.amount, required this.kilograms});
+  const CategoryTotal({
+    required this.category,
+    required this.amount,
+    required this.kilograms,
+    this.commission = 0.0,
+  });
+
+  /// What's left after paying the agent's commission for this category.
+  double get net => amount - commission;
 }
 
 class BuyerTotal {

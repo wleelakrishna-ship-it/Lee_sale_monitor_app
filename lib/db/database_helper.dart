@@ -40,7 +40,7 @@ class DatabaseHelper {
   // data yet. From version 3 onward, this is the real source of truth for live
   // business data, so every later bump MUST migrate additively (ALTER TABLE, never
   // DROP) or real data gets silently wiped on the next app open.
-  static const _schemaVersion = 4;
+  static const _schemaVersion = 5;
 
   Future<Database> _initDatabase() async {
     final databasesPath = await getDatabasesPath();
@@ -59,6 +59,13 @@ class DatabaseHelper {
         if (oldVersion < 4) {
           await db.execute(
             'ALTER TABLE category_rates ADD COLUMN commission_per_kg REAL NOT NULL DEFAULT 0',
+          );
+        }
+        if (oldVersion < 5) {
+          // Snapshotted onto each sale (like rate_per_kg already is) so a category's
+          // commission can change later without rewriting the history of past sales.
+          await db.execute(
+            'ALTER TABLE sales ADD COLUMN commission_per_kg REAL NOT NULL DEFAULT 0',
           );
         }
       },
@@ -113,6 +120,7 @@ class DatabaseHelper {
         kilograms REAL NOT NULL,
         amount REAL NOT NULL,
         created_at TEXT NOT NULL,
+        commission_per_kg REAL NOT NULL DEFAULT 0,
         $syncColumns
       )
     ''');
@@ -371,11 +379,14 @@ class DatabaseHelper {
       ..sort((a, b) => a.buyerName.compareTo(b.buyerName));
   }
 
-  Future<({double totalAmount, double totalKg, int buyerCount})> getDayTotals(String date) async {
+  Future<({double totalAmount, double totalKg, double totalCommission, int buyerCount})> getDayTotals(
+    String date,
+  ) async {
     final db = await database;
     final rows = await db.rawQuery(
       '''
       SELECT SUM(amount) as total_amount, SUM(kilograms) as total_kg,
+             SUM(commission_per_kg * kilograms) as total_commission,
              COUNT(DISTINCT buyer_name) as buyer_count
       FROM sales WHERE date = ? AND deleted = 0
       ''',
@@ -385,6 +396,7 @@ class DatabaseHelper {
     return (
       totalAmount: (row['total_amount'] as num?)?.toDouble() ?? 0.0,
       totalKg: (row['total_kg'] as num?)?.toDouble() ?? 0.0,
+      totalCommission: (row['total_commission'] as num?)?.toDouble() ?? 0.0,
       buyerCount: (row['buyer_count'] as num?)?.toInt() ?? 0,
     );
   }
@@ -449,7 +461,8 @@ class DatabaseHelper {
     final db = await database;
     final rows = await db.rawQuery(
       '''
-      SELECT category, SUM(amount) as total, SUM(kilograms) as total_kg
+      SELECT category, SUM(amount) as total, SUM(kilograms) as total_kg,
+             SUM(commission_per_kg * kilograms) as total_commission
       FROM sales WHERE date BETWEEN ? AND ? AND deleted = 0
       GROUP BY category ORDER BY total DESC
       ''',
@@ -460,6 +473,7 @@ class DatabaseHelper {
               category: row['category'] as String,
               amount: (row['total'] as num?)?.toDouble() ?? 0.0,
               kilograms: (row['total_kg'] as num?)?.toDouble() ?? 0.0,
+              commission: (row['total_commission'] as num?)?.toDouble() ?? 0.0,
             ))
         .toList();
   }
