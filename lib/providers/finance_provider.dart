@@ -17,6 +17,9 @@ class FinanceProvider extends ChangeNotifier {
   List<Investor> _investorRecords = [];
   bool _investorRecordsLoading = false;
 
+  List<ProfitShare> _profitShareRecords = [];
+  bool _profitShareRecordsLoading = false;
+
   ReportRangeType _rangeType = ReportRangeType.day;
   DateTime? _customStart;
   DateTime? _customEnd;
@@ -39,6 +42,9 @@ class FinanceProvider extends ChangeNotifier {
 
   List<Investor> get investorRecords => _investorRecords;
   bool get investorRecordsLoading => _investorRecordsLoading;
+
+  List<ProfitShare> get profitShareRecords => _profitShareRecords;
+  bool get profitShareRecordsLoading => _profitShareRecordsLoading;
 
   ReportRangeType get rangeType => _rangeType;
   DateRange get range => _range;
@@ -123,6 +129,31 @@ class FinanceProvider extends ChangeNotifier {
   Future<void> deleteInvestorRecord(String id, String name) async {
     await _db.deleteInvestor(id);
     await loadInvestorRecords(name);
+    await loadOverview();
+  }
+
+  /// All of one investor's individual profit-share entries (all-time), for the
+  /// profit-share detail/edit screen.
+  Future<void> loadProfitShareRecords(String investorName) async {
+    _profitShareRecordsLoading = true;
+    notifyListeners();
+    try {
+      _profitShareRecords = await _db.getProfitShareRecords(investorName);
+    } finally {
+      _profitShareRecordsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateProfitShareRecord(ProfitShare share) async {
+    await _db.updateProfitShare(share);
+    await loadProfitShareRecords(share.investorName);
+    await loadOverview();
+  }
+
+  Future<void> deleteProfitShareRecord(String id, String investorName) async {
+    await _db.deleteProfitShare(id);
+    await loadProfitShareRecords(investorName);
     await loadOverview();
   }
 

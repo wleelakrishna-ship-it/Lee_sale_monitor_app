@@ -7,6 +7,7 @@ import '../providers/finance_provider.dart';
 import '../utils/formatters.dart';
 import '../widgets/saving_button.dart';
 import '../widgets/summary_card.dart';
+import 'profit_share_detail_screen.dart';
 
 class ProfitSharesScreen extends StatefulWidget {
   const ProfitSharesScreen({super.key});
@@ -191,16 +192,27 @@ class _InvestorTotalRow extends StatelessWidget {
           '${tr(context, 'invested_word')} ${formatCurrency(investor.invested)} • '
           '${tr(context, 'shared_word')} ${formatCurrency(investor.shared)}',
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(displayValue, style: TextStyle(color: netColor, fontWeight: FontWeight.bold)),
-            Text(
-              tr(context, status.isProfit ? 'net_status_profit' : 'net_status_outstanding'),
-              style: TextStyle(color: netColor, fontSize: 11),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(displayValue, style: TextStyle(color: netColor, fontWeight: FontWeight.bold)),
+                Text(
+                  tr(context, status.isProfit ? 'net_status_profit' : 'net_status_outstanding'),
+                  style: TextStyle(color: netColor, fontSize: 11),
+                ),
+              ],
             ),
+            const Icon(Icons.chevron_right),
           ],
+        ),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ProfitShareDetailScreen(investorName: investor.name),
+          ),
         ),
       ),
     );

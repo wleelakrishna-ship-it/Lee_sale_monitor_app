@@ -579,6 +579,37 @@ class DatabaseHelper {
     await db.insert('profit_shares', map);
   }
 
+  Future<void> updateProfitShare(ProfitShare share) async {
+    final db = await database;
+    final map = share.toMap()
+      ..['updated_at'] = _now()
+      ..['synced'] = 0;
+    await db.update('profit_shares', map, where: 'id = ?', whereArgs: [share.id]);
+  }
+
+  Future<void> deleteProfitShare(String id) async {
+    final db = await database;
+    await db.update(
+      'profit_shares',
+      {'deleted': 1, 'updated_at': _now(), 'synced': 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// All individual profit-share records for one investor (all-time), for the
+  /// profit-share detail/edit screen.
+  Future<List<ProfitShare>> getProfitShareRecords(String investorName) async {
+    final db = await database;
+    final rows = await db.query(
+      'profit_shares',
+      where: 'investor_name = ? AND deleted = 0',
+      whereArgs: [investorName],
+      orderBy: 'date DESC, created_at DESC',
+    );
+    return rows.map((row) => ProfitShare.fromMap(row['id'] as String, row)).toList();
+  }
+
   Future<List<String>> getDistinctInvestorNames() async {
     final db = await database;
     final rows = await db

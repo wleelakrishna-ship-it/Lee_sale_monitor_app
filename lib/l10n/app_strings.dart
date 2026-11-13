@@ -222,6 +222,15 @@ const Map<String, String> enStrings = {
   'investment_updated': 'Investment updated',
   'investment_deleted': 'Investment deleted',
 
+  // Profit share detail
+  'profit_share_records_label': 'Profit share records',
+  'no_profit_share_records': 'No profit share records yet.',
+  'edit_profit_share_title': 'Edit profit share',
+  'delete_profit_share_title': 'Delete this profit share?',
+  'delete_profit_share_body': 'Delete the {amount} profit share dated {date}?',
+  'profit_share_updated': 'Profit share updated',
+  'profit_share_deleted': 'Profit share deleted',
+
   // Sync
   'sync_tooltip': 'Sync with Firebase',
   'never_synced': 'Not synced yet',
@@ -457,6 +466,15 @@ const Map<String, String> taStrings = {
   'delete_investment_body': '{date} தேதியிட்ட {amount} முதலீட்டை நீக்கவா?',
   'investment_updated': 'முதலீடு புதுப்பிக்கப்பட்டது',
   'investment_deleted': 'முதலீடு நீக்கப்பட்டது',
+
+  // Profit share detail
+  'profit_share_records_label': 'லாப பங்கீட்டு பதிவுகள்',
+  'no_profit_share_records': 'இன்னும் லாப பங்கீட்டு பதிவுகள் இல்லை.',
+  'edit_profit_share_title': 'லாப பங்கீட்டைத் திருத்து',
+  'delete_profit_share_title': 'இந்த லாப பங்கீட்டை நீக்கவா?',
+  'delete_profit_share_body': '{date} தேதியிட்ட {amount} லாப பங்கீட்டை நீக்கவா?',
+  'profit_share_updated': 'லாப பங்கீடு புதுப்பிக்கப்பட்டது',
+  'profit_share_deleted': 'லாப பங்கீடு நீக்கப்பட்டது',
 
   // Sync
   'sync_tooltip': 'Firebase உடன் ஒத்திசை',
