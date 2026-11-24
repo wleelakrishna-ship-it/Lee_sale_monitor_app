@@ -4,6 +4,7 @@ import '../db/database_helper.dart';
 import '../models/buyer_overview.dart';
 import '../models/payment.dart';
 import '../models/sale.dart';
+import '../utils/date_utils.dart';
 
 class BuyersProvider extends ChangeNotifier {
   final DatabaseHelper _db = DatabaseHelper.instance;
@@ -46,6 +47,29 @@ class BuyersProvider extends ChangeNotifier {
       _loading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> addPaymentForBuyer(String buyerName, double amountGiven) async {
+    if (amountGiven <= 0) return;
+    await _db.insertPayment(
+      Payment(
+        date: todayDbDate(),
+        buyerName: buyerName,
+        amountGiven: amountGiven,
+        createdAt: DateTime.now().toIso8601String(),
+      ),
+    );
+    await loadAllBuyers();
+  }
+
+  Future<void> updatePayment(Payment payment) async {
+    await _db.updatePayment(payment);
+    await loadBuyerHistory(payment.buyerName);
+  }
+
+  Future<void> deletePayment(String id, String buyerName) async {
+    await _db.deletePayment(id);
+    await loadBuyerHistory(buyerName);
   }
 
   Future<void> loadBuyerHistory(String buyerName) async {

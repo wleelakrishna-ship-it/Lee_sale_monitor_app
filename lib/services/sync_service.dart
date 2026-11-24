@@ -30,7 +30,7 @@ class SyncService {
   static final SyncService instance = SyncService._internal();
 
   static const _lastSyncedKey = 'last_synced_at';
-  static const _timeout = Duration(seconds: 20);
+  static const _timeout = Duration(seconds: 45);
   static const _tables = [
     'category_rates',
     'sales',

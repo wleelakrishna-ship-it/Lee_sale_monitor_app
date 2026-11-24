@@ -111,6 +111,7 @@ class _TodayOverviewScreenState extends State<TodayOverviewScreen> {
     final salesProvider = context.watch<SalesProvider>();
     final summaries = salesProvider.todaySummaries;
     final totals = salesProvider.dayTotals;
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom + MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
       appBar: AppBar(title: Text(tr(context, 'today_overview_title'))),
@@ -148,7 +149,7 @@ class _TodayOverviewScreenState extends State<TodayOverviewScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomInset),
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     border: const Border(top: BorderSide(color: Colors.black12)),

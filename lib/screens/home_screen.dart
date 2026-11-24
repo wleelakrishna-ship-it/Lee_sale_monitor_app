@@ -76,11 +76,16 @@ class _HomeScreenState extends State<HomeScreen> {
           'down': '${result.downloaded}',
         })),
       ));
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() => _syncing = false);
+      final msg = e.toString().contains('permission-denied')
+          ? 'Sync failed: Firestore permission denied. Check Firebase Console → Firestore → Rules.'
+          : e.toString().contains('unavailable') || e.toString().contains('NOT_FOUND')
+              ? 'Sync failed: Firestore database not found. Create it at console.firebase.google.com → Firestore Database.'
+              : tr(context, 'sync_failed_message');
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(tr(context, 'sync_failed_message'))));
+          .showSnackBar(SnackBar(content: Text(msg), duration: const Duration(seconds: 6)));
     }
   }
 
