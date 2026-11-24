@@ -246,9 +246,15 @@ class _SaleEntryScreenState extends State<SaleEntryScreen> {
             ],
           ),
           const SizedBox(height: 24),
-          SavingButton(
-            label: tr(context, 'save_sale_button'),
-            onPressed: () => _save(salesProvider),
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewPaddingOf(context).bottom +
+                  MediaQuery.of(context).viewInsets.bottom,
+            ),
+            child: SavingButton(
+              label: tr(context, 'save_sale_button'),
+              onPressed: () => _save(salesProvider),
+            ),
           ),
         ],
       ),
