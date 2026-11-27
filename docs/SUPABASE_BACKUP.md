@@ -17,11 +17,14 @@ initialised with an `accessToken` callback that returns the Firebase ID token.
 RLS policies compare `auth.jwt()->>'sub'` (the Firebase UID) against the
 `owner_uid` text column.
 
-### Required one-time setup (Firebase custom claim)
+### Optional: custom claim (recommended best practice)
 
-Every Firebase user must carry `{ "role": "authenticated" }` or Supabase maps
-the request to `anon` and RLS returns no rows.
+For the cleanest setup, every Firebase user can carry `{ "role": "authenticated" }`
+so Supabase maps the request to the `authenticated` role. This is NOT required
+for the app to work — the RLS policies apply to both `anon` and `authenticated`
+and rely on the verified Firebase UID in `auth.jwt()->>'sub'`.
 
+If you want it anyway:
 1. Firebase Console → Project Settings → Service accounts → Generate new private key.
 2. Save as `tools/firebase_claim/service-account.json` (git-ignored).
 3. `cd tools/firebase_claim && npm install && npm run set-claims`.
