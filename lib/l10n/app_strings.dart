@@ -248,6 +248,13 @@ const Map<String, String> enStrings = {
       'This merges the selected backup file into your current data. Nothing already on this phone will be overwritten unless the backup has a newer version of it.',
   'restore_result_message': 'Restore complete — {merged} record(s) added or updated',
   'restore_failed_message': 'Could not read that file as a LEE Sale Monitor backup.',
+  'cloud_backup_action': 'Back up to cloud (Supabase)',
+  'cloud_restore_action': 'Restore from cloud (Supabase)',
+  'cloud_backup_result_message': 'Cloud backup complete — {count} record(s) stored in Supabase',
+  'cloud_restore_result_message': 'Cloud restore complete — {merged} record(s) added or updated',
+  'cloud_backup_failed_message': 'Could not back up to Supabase. Please try again.',
+  'cloud_restore_failed_message': 'Could not restore from Supabase. Please try again.',
+  'cloud_not_configured_message': 'Supabase is not configured for this build.',
 };
 
 /// Tamil translations. Keys must exactly mirror [enStrings].
@@ -493,6 +500,13 @@ const Map<String, String> taStrings = {
       'தேர்ந்தெடுக்கப்பட்ட காப்புப்பிரதி கோப்பு உங்கள் தற்போதைய தரவுடன் இணைக்கப்படும். காப்புப்பிரதியில் புதிய பதிவு இல்லாவிட்டால், இந்த சாதனத்தில் உள்ளவை மாற்றப்படாது.',
   'restore_result_message': 'மீட்டமைப்பு முடிந்தது — {merged} பதிவுகள் சேர்க்கப்பட்டன/புதுப்பிக்கப்பட்டன',
   'restore_failed_message': 'அந்த கோப்பை LEE Sale Monitor காப்புப்பிரதியாகப் படிக்க முடியவில்லை.',
+  'cloud_backup_action': 'கிளவுட் காப்புப்பிரதி (Supabase)',
+  'cloud_restore_action': 'கிளவுட்டிலிருந்து மீட்டமை (Supabase)',
+  'cloud_backup_result_message': 'கிளவுட் காப்புப்பிரதி முடிந்தது — {count} பதிவுகள் Supabase-இல் சேமிக்கப்பட்டன',
+  'cloud_restore_result_message': 'கிளவுட் மீட்டமைப்பு முடிந்தது — {merged} பதிவுகள் சேர்க்கப்பட்டன/புதுப்பிக்கப்பட்டன',
+  'cloud_backup_failed_message': 'Supabase-க்கு காப்புப்பிரதி எடுக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+  'cloud_restore_failed_message': 'Supabase-இலிருந்து மீட்டமைக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+  'cloud_not_configured_message': 'இந்த பதிப்பில் Supabase கட்டமைக்கப்படவில்லை.',
 };
 
 /// Looks up [key] in the current language (falling back to English, then the

@@ -12,6 +12,15 @@ class AuthService {
 
   User? get currentUser => _auth.currentUser;
 
+  /// Firebase UID of the signed-in user, or null when signed out.
+  String? get currentUid => _auth.currentUser?.uid;
+
+  /// Forces a refresh of the Firebase ID token so the `role: authenticated`
+  /// custom claim (required by Supabase third-party auth) propagates.
+  Future<void> refreshToken() async {
+    await _auth.currentUser?.getIdToken(true);
+  }
+
   Future<void> signIn({required String email, required String password}) async {
     await _auth.signInWithEmailAndPassword(email: email.trim(), password: password);
   }

@@ -1,0 +1,11 @@
+{
+  "name": "lee-sale-monitor-firebase-claim",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "set-claims": "node set_authenticated_claim.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}

@@ -2,12 +2,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/config/env.dart';
 import '../l10n/app_language.dart';
 import '../l10n/app_strings.dart';
 import '../providers/language_provider.dart';
 import '../providers/sales_provider.dart';
 import '../services/auth_service.dart';
 import '../services/backup_service.dart';
+import '../services/cloud_backup_service.dart';
 import '../services/restore_service.dart';
 import '../services/sync_service.dart';
 import '../utils/date_utils.dart';
@@ -32,6 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _syncing = false;
   bool _backingUp = false;
   bool _restoring = false;
+  bool _cloudBackingUp = false;
+  bool _cloudRestoring = false;
   DateTime? _lastSyncedAt;
 
   @override
@@ -40,10 +44,33 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<SalesProvider>().loadTodayOverview();
       context.read<LanguageProvider>().loadSavedLanguage();
+      _autoCloudRestore();
     });
     SyncService.instance.getLastSyncedAt().then((value) {
       if (mounted) setState(() => _lastSyncedAt = value);
     });
+  }
+
+  Future<void> _autoCloudRestore() async {
+    if (!Env.hasSupabaseConfig) return;
+    if (AuthService.instance.currentUid == null) return;
+    setState(() => _cloudRestoring = true);
+    try {
+      final result = await CloudBackupService.instance.restore();
+      if (!mounted) return;
+      await context.read<SalesProvider>().loadTodayOverview();
+      if (!mounted) return;
+      if (result.total > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr(context, 'cloud_restore_result_message',
+              {'merged': '${result.total}'})),
+        ));
+      }
+    } catch (_) {
+      // Silent on auto-restore; user can retry manually.
+    } finally {
+      if (mounted) setState(() => _cloudRestoring = false);
+    }
   }
 
   String _formatLastSynced(BuildContext context) {
@@ -144,6 +171,62 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _cloudBackup() async {
+    if (!Env.hasSupabaseConfig) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr(context, 'cloud_not_configured_message'))),
+      );
+      return;
+    }
+    setState(() => _cloudBackingUp = true);
+    try {
+      final result = await CloudBackupService.instance.backup();
+      if (!mounted) return;
+      await context.read<SalesProvider>().loadTodayOverview();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(context, 'cloud_backup_result_message',
+            {'count': '${result.total}'})),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr(context, 'cloud_backup_failed_message'))),
+      );
+    } finally {
+      if (mounted) setState(() => _cloudBackingUp = false);
+    }
+  }
+
+  Future<void> _cloudRestore() async {
+    if (!Env.hasSupabaseConfig) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr(context, 'cloud_not_configured_message'))),
+      );
+      return;
+    }
+    setState(() => _cloudRestoring = true);
+    try {
+      final result = await CloudBackupService.instance.restore();
+      if (!mounted) return;
+      await context.read<SalesProvider>().loadTodayOverview();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(context, 'cloud_restore_result_message',
+            {'merged': '${result.total}'})),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr(context, 'cloud_restore_failed_message'))),
+      );
+    } finally {
+      if (mounted) setState(() => _cloudRestoring = false);
+    }
+  }
+
   Future<void> _showLanguageDialog(BuildContext context) async {
     await showDialog<void>(
       context: context,
@@ -213,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: _syncing ? null : _sync,
           ),
           PopupMenuButton<String>(
-            icon: (_backingUp || _restoring)
+            icon: (_backingUp || _restoring || _cloudBackingUp || _cloudRestoring)
                 ? const SizedBox(
                     height: 20,
                     width: 20,
@@ -221,14 +304,27 @@ class _HomeScreenState extends State<HomeScreen> {
                   )
                 : const Icon(Icons.save_alt_outlined),
             tooltip: tr(context, 'backup_tooltip'),
-            enabled: !_backingUp && !_restoring,
+            enabled: !_backingUp && !_restoring && !_cloudBackingUp && !_cloudRestoring,
             onSelected: (value) {
-              if (value == 'backup') _backup();
-              if (value == 'restore') _restore();
+              if (value == 'cloud_backup') _cloudBackup();
+              if (value == 'cloud_restore') _cloudRestore();
+              if (value == 'file_backup') _backup();
+              if (value == 'file_restore') _restore();
             },
             itemBuilder: (context) => [
-              PopupMenuItem(value: 'backup', child: Text(tr(context, 'backup_now_action'))),
-              PopupMenuItem(value: 'restore', child: Text(tr(context, 'restore_backup_action'))),
+              PopupMenuItem(
+                  value: 'cloud_backup',
+                  child: Text(tr(context, 'cloud_backup_action'))),
+              PopupMenuItem(
+                  value: 'cloud_restore',
+                  child: Text(tr(context, 'cloud_restore_action'))),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                  value: 'file_backup',
+                  child: Text(tr(context, 'backup_now_action'))),
+              PopupMenuItem(
+                  value: 'file_restore',
+                  child: Text(tr(context, 'restore_backup_action'))),
             ],
           ),
           IconButton(

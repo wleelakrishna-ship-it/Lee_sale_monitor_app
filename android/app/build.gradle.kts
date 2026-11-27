@@ -19,7 +19,9 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.fishapp.fish_app"
-    compileSdk = flutter.compileSdkVersion
+    // Explicit SDK versions for Play Store compliance.
+    // compile/target SDK 36 = Android 16 (well above the current Play requirement).
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -32,9 +34,9 @@ android {
         applicationId = "com.fishapp.fish_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // Firebase Auth/Firestore require API 23+.
-        minSdk = flutter.minSdkVersion  // Firebase Auth + Firestore require API 21+
-        targetSdk = flutter.targetSdkVersion
+        // Firebase Auth/Firestore require API 23+; 24 is Flutter's current stable minimum.
+        minSdk = 24
+        targetSdk = 36
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
         // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
@@ -46,7 +48,9 @@ android {
     signingConfigs {
         create("release") {
             if (keystorePropertiesFile.exists()) {
-                storeFile = file(keystoreProperties["storeFile"] as String)
+                // Resolve relative to the android/ project dir so the path works
+                // regardless of machine/who runs the build.
+                storeFile = rootProject.file(keystoreProperties["storeFile"] as String)
                 storePassword = keystoreProperties["storePassword"] as String
                 keyAlias = keystoreProperties["keyAlias"] as String
                 keyPassword = keystoreProperties["keyPassword"] as String

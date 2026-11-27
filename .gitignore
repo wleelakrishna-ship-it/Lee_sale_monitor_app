@@ -6,6 +6,11 @@ android/key.properties
 *.jks
 *.keystore
 
+# Supabase / runtime config (contains the anon key and environment URLs — never commit)
+env/dev.json
+env/prod.json
+tools/**/service-account.json
+
 # Miscellaneous
 *.class
 *.log

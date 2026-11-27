@@ -2,7 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
+import 'core/config/env.dart';
 import 'firebase_options.dart';
 import 'providers/buyers_provider.dart';
 import 'providers/finance_provider.dart';
@@ -17,6 +19,20 @@ import 'services/auth_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  if (Env.hasSupabaseConfig) {
+    await Supabase.initialize(
+      url: Env.supabaseUrl,
+      // ignore: deprecated_member_use
+      anonKey: Env.supabaseAnonKey,
+      accessToken: () async {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user == null) return null;
+        return user.getIdToken();
+      },
+    );
+  }
+
   runApp(const FishApp());
 }
 

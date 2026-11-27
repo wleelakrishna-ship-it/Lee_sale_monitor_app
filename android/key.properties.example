@@ -1,0 +1,9 @@
+# Copy this file to android/key.properties and fill in your real values.
+# NEVER commit the real key.properties or the .jks keystore to source control.
+#
+# The keystore path is resolved relative to the android/ directory.
+# Example: android/keystores/lee_sale_monitor_release.jks
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=lee_sale_monitor
+storeFile=keystores/lee_sale_monitor_release.jks
