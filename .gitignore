@@ -62,3 +62,7 @@ app.*.map.json
 
 # Kotlin compiler session files
 android/.kotlin/
+
+# Node modules (firebase claim script)
+tools/firebase_claim/node_modules/
+tools/firebase_claim/package-lock.json
