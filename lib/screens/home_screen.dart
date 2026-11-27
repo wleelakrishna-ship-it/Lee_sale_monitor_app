@@ -56,7 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (AuthService.instance.currentUid == null) return;
     setState(() => _cloudRestoring = true);
     try {
-      final result = await CloudBackupService.instance.restore();
+      final result = await CloudBackupService.instance.restore().timeout(const Duration(seconds: 30));
       if (!mounted) return;
       await context.read<SalesProvider>().loadTodayOverview();
       if (!mounted) return;
@@ -304,7 +304,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   )
                 : const Icon(Icons.save_alt_outlined),
             tooltip: tr(context, 'backup_tooltip'),
-            enabled: !_backingUp && !_restoring && !_cloudBackingUp && !_cloudRestoring,
+            enabled: !_backingUp && !_restoring && !_cloudBackingUp,
             onSelected: (value) {
               if (value == 'cloud_backup') _cloudBackup();
               if (value == 'cloud_restore') _cloudRestore();
